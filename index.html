@@ -27,6 +27,7 @@ p{margin:0}
 .small{font-size:14px}
 .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
 button{font:inherit;color:inherit}
+[hidden]{display:none!important}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 
 /* Buttons */
@@ -86,6 +87,36 @@ code.hdr{display:block;background:var(--surface);border-radius:8px;padding:10px 
 .plist span{color:var(--muted);font-variant-numeric:tabular-nums}
 ul.problems{margin:0;padding-left:20px;font-size:14px;color:var(--muted);max-height:220px;overflow:auto}
 input[type=file]{font-size:14px;color:var(--muted);max-width:100%}
+.plist button{appearance:none;border:1.5px solid transparent;background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;text-align:left;min-height:48px}
+.plist button:hover{border-color:var(--muted)}
+.plist button .ed{color:var(--accent);font-size:13px;font-weight:700}
+.plist button span.n{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
+/* Playlist editor */
+.efilter{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.efilter input{flex:1 1 220px;min-width:0;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:inherit;padding:10px 12px;min-height:44px}
+.erows{display:flex;flex-direction:column;gap:8px}
+.erow{background:var(--surface);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;border-left:4px solid var(--good)}
+.erow.off{border-left-color:var(--line)}
+.erow.off .etitle{opacity:.55}
+.echk{display:flex;gap:12px;align-items:center;cursor:pointer;min-height:32px}
+.echk input{width:24px;height:24px;accent-color:var(--good);flex:none;margin:0}
+.etitle{display:flex;flex-direction:column;min-width:0}
+.etitle b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.etitle span{color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.etag{margin-left:auto;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);flex:none}
+.efields{display:grid;grid-template-columns:90px minmax(0,1fr) 150px auto;gap:8px 10px;align-items:end}
+.efields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.efields input{background:var(--bg-2);border:1.5px solid var(--line);border-radius:8px;color:var(--fg);font:14px/1.3 var(--body);padding:8px 10px;min-height:40px;box-sizing:border-box;width:100%;min-width:0}
+.efields input.bad{border-color:var(--bad)}
+.ebtns{display:flex;gap:6px;flex-wrap:wrap}
+.ebtns a.btn{text-decoration:none}
+.emsg{color:var(--bad);font-size:13px}
+.emsg:empty{display:none}
+@media (max-width:699px){
+  .efields{grid-template-columns:1fr 1fr}
+  .efields .elink{grid-column:1 / -1;order:-1}
+  .efields .ebtns{grid-column:1 / -1}
+}
 
 /* Top bar */
 .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
@@ -465,17 +496,101 @@ let lib = store.get('nd_lib', null);
 if (!lib || !Array.isArray(lib.songs)) lib = { songs: importText(SAMPLE).songs, source: 'sample' };
 let history = new Set(store.get('nd_history', []));
 let failed = store.get('nd_failed', []);
-const saveLib = () => store.set('nd_lib', lib);
+const saveLib = () => { store.set('nd_lib', lib); applyEdits(); };
 const saveHistory = () => store.set('nd_history', [...history]);
 function markPlayed(id){ if (!history.has(id)){ history.add(id); saveHistory(); } }
+
+/* ---------- in-app edits ----------
+   Edits are local overrides on top of the imported library (nd_edits), keyed by artist|title so they
+   survive the silent Sheet reload on every app open and a fixed link in the Sheet. Fields: year, id
+   (YouTube video), start (seconds), pl {playlist: true|false} for checked/unchecked. `songs` is the
+   effective library every read uses; lib.songs stays exactly what was imported. */
+let edits = store.get('nd_edits', {});
+const saveEdits = () => store.set('nd_edits', edits);
+const songKey = s => (String(s.artist) + '|' + String(s.title)).toLowerCase().replace(/\s+/g, ' ').trim();
+let songs = [], baseByKey = new Map();
+function applyEdits(){
+  baseByKey = new Map();
+  songs = lib.songs.map(b => {
+    const k = songKey(b), e = edits[k];
+    if (!baseByKey.has(k)) baseByKey.set(k, b);
+    const s = { ...b, key: k, playlists: b.playlists.slice() };
+    if (e){
+      if (e.year) s.year = e.year;
+      if (e.id) s.id = e.id;
+      if (e.start != null) s.start = e.start;
+      if (e.pl) for (const p in e.pl){
+        if (e.pl[p]){ if (!s.playlists.includes(p)) s.playlists.push(p); }
+        else s.playlists = s.playlists.filter(x => x !== p);
+      }
+    }
+    return s;
+  });
+}
+/* A song unticked from every playlist it was in is left out of "All songs" too. */
+const playable = s => s.playlists.length > 0 || !(edits[s.key] && edits[s.key].pl);
+const editedCount = () => songs.filter(s => edits[s.key]).length;
+function parseStart(v){
+  v = String(v).trim(); if (!v) return 0;
+  let m = v.match(/^(\d+)$/); if (m) return +m[1];
+  m = v.match(/^(\d+):([0-5]\d)$/); if (m) return +m[1] * 60 + +m[2];
+  return null;
+}
+/* Returns { error } or { value } (the normalised value to show in the field). */
+function setEdit(k, field, v, pl){
+  const b = baseByKey.get(k), cur = songs.find(s => s.key === k);
+  if (!b || !cur) return { error: 'Song not found.' };
+  const e = Object.assign({}, edits[k]);
+  let value = v;
+  if (field === 'year'){
+    v = String(v).trim();
+    if (!/^\d{4}$/.test(v) || +v < 1900 || +v > 2100) return { error: 'Year must be 4 digits, like 1984.' };
+    if (+v === b.year) delete e.year; else e.year = +v;
+  } else if (field === 'link'){
+    const id = ytId(v);
+    if (!id) return { error: 'That is not a YouTube link.' };
+    const clash = songs.find(s => s.id === id && s.key !== k);
+    if (clash) return { error: 'That video is already used by ' + clash.artist + ' — ' + clash.title + '.' };
+    if (id !== cur.id && history.has(cur.id)){ history.add(id); saveHistory(); }
+    if (id === b.id) delete e.id; else e.id = id;
+    value = 'https://youtu.be/' + id;
+  } else if (field === 'start'){
+    const st = parseStart(v);
+    if (st == null) return { error: 'Start must be seconds (like 45) or minutes:seconds (like 1:30).' };
+    if (st === b.start) delete e.start; else e.start = st;
+    value = st;
+  } else if (field === 'on'){
+    const pls = Object.assign({}, e.pl);
+    if (!!v === b.playlists.includes(pl)) delete pls[pl]; else pls[pl] = !!v;
+    if (Object.keys(pls).length) e.pl = pls; else delete e.pl;
+  }
+  if (Object.keys(e).length) edits[k] = e; else delete edits[k];
+  saveEdits(); applyEdits();
+  return { value };
+}
+const csvCell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+function libraryRows(delim){
+  const cell = delim === '\t' ? (v => String(v).replace(/[\t\n\r]+/g, ' ')) : csvCell;
+  return [['artist','title','year','youtube_link','start_sec','playlists'], ...songs.map(s => [s.artist, s.title, s.year, 'https://youtu.be/' + s.id, s.start || 0, s.playlists.join(', ')])]
+    .map(r => r.map(cell).join(delim)).join('\n');
+}
+applyEdits();
+
 function playlistCounts(){
   const m = new Map();
-  lib.songs.forEach(s => s.playlists.forEach(p => m.set(p, (m.get(p) || 0) + 1)));
+  songs.forEach(s => s.playlists.forEach(p => m.set(p, (m.get(p) || 0) + 1)));
+  return [...m.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+}
+/* Every playlist name, including ones where every song is unticked, so they can still be edited. */
+function allPlaylists(){
+  const m = new Map(playlistCounts());
+  lib.songs.forEach(s => s.playlists.forEach(p => { if (!m.has(p)) m.set(p, 0); }));
+  Object.values(edits).forEach(e => e.pl && Object.keys(e.pl).forEach(p => { if (!m.has(p)) m.set(p, 0); }));
   return [...m.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
 }
 function selectionSongs(sel){
-  if (!sel.length || sel.includes('__all')) return lib.songs.slice();
-  return lib.songs.filter(s => s.playlists.some(p => sel.includes(p)));
+  if (!sel.length || sel.includes('__all')) return songs.filter(playable);
+  return songs.filter(s => s.playlists.some(p => sel.includes(p)));
 }
 const songUrl = s => 'https://youtu.be/' + s.id + (s.start ? '?t=' + s.start : '');
 
@@ -583,7 +698,26 @@ const snap = () => { undoStack.push(JSON.stringify(app.game)); if (undoStack.len
 const A = {
   toHome(){ app.screen = 'home'; },
   toSetup(){ app.screen = 'setup'; },
-  toLibrary(){ app.screen = 'library'; app.libMsg = null; },
+  toLibrary(){ app.screen = 'library'; app.libMsg = null; app.edMsg = null; },
+  editPl(name){ app.screen = 'playlist'; app.pl = name; app.plAll = false; app.plFilter = ''; window.scrollTo(0, 0); },
+  plAll(){ app.plAll = !app.plAll; },
+  resetSong(k){ delete edits[k]; saveEdits(); applyEdits(); },
+  exportCsv(){
+    try{
+      const blob = new Blob(['\ufeff' + libraryRows(',')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dig-the-year-songs.csv';
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      app.edMsg = { kind: 'good', text: 'Downloaded dig-the-year-songs.csv with every song and your edits.' };
+    }catch(e){ app.edMsg = { kind: 'bad', text: 'Download failed on this browser. Use "Copy for Sheet" instead.' }; }
+  },
+  copyRows(){
+    const t = libraryRows('\t');
+    const ok = () => { app.edMsg = { kind: 'good', text: 'Copied ' + songs.length + ' rows with the header. In your Sheet, click cell A1 of the songs tab and paste.' }; render(); };
+    const bad = () => { app.edMsg = { kind: 'bad', text: 'This browser blocked copying. Use "Download CSV" instead.' }; render(); };
+    try{ navigator.clipboard.writeText(t).then(ok, bad); }catch(e){ bad(); }
+    return 'keep';
+  },
+  clearEdits(){ if (app.confirm !== 'edits'){ app.confirm = 'edits'; return 'keep'; } edits = {}; saveEdits(); applyEdits(); app.edMsg = { kind: 'good', text: 'All edits removed. Songs are back to what the Sheet or import says.' }; },
   resume(){ app.screen = 'game'; wake(); },
   addPlayer(){ const P = app.setup.players; if (P.length >= 5) return; const used = P.map(p => p.color); P.push({ name: 'Player ' + (P.length + 1), color: COLORS.find(c => !used.includes(c)) || COLORS[0] }); },
   removePlayer(i){ if (app.setup.players.length > 1) app.setup.players.splice(+i, 1); },
@@ -743,7 +877,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const tokens = n => `<span class="tk"><span class="tok" aria-hidden="true"></span>${n}</span>`;
 const pdot = c => `<span class="dot" style="--c:${c}"></span>`;
-const libSummary = () => { const pl = playlistCounts().length; return `${lib.songs.length} songs · ${pl} playlists · ${history.size} played${lib.source === 'sample' ? ' · sample library' : ''}`; };
+const libSummary = () => { const pl = playlistCounts().length; return `${songs.length} songs · ${pl} playlists · ${history.size} played${lib.source === 'sample' ? ' · sample library' : ''}`; };
 
 function vHome(){
   const live = app.game && !app.game.over;
@@ -754,7 +888,7 @@ function vHome(){
     <div class="home-actions">
       ${live ? `<button class="btn primary big" data-act="resume">Resume game</button>` : ''}
       <button class="btn ${live ? 'ghost' : 'primary'} big" data-act="toSetup">New game</button>
-      <button class="btn ghost big" data-act="toLibrary">Song library</button>
+      <button class="btn ghost big" data-act="toLibrary">Playlists</button>
     </div>
     <p class="muted small">${libSummary()}</p>
   </main>`;
@@ -788,9 +922,9 @@ function vSetup(){
     </div>`).join('')}
     <div class="row">${n < 5 ? `<button class="btn small" data-act="addPlayer">Add player</button>` : ''}<span class="muted small">${n} of 5 players${n === 1 ? ' · solo: skip and buy tokens only' : n === 2 ? ' · challenges need 3 or more players' : ''}</span></div>
   </section>
-  <section class="panel"><h2>Songs</h2>
+  <section class="panel"><h2>Playlists</h2>
     <p class="muted small">Pick one or more playlists. Songs in several playlists are only used once. The number is unplayed songs.</p>
-    <div class="chips">${plChip('__all', 'All songs', unpl(lib.songs))}${pls.map(([p]) => plChip(p, p, unpl(lib.songs.filter(s => s.playlists.includes(p))))).join('')}</div>
+    <div class="chips">${plChip('__all', 'All songs', unpl(songs.filter(playable)))}${pls.map(([p]) => plChip(p, p, unpl(songs.filter(s => s.playlists.includes(p))))).join('')}</div>
     ${status}
   </section>
   <div class="row"><button class="btn primary big" data-act="start" ${canStart ? '' : 'disabled'}>Start game</button>
@@ -798,14 +932,23 @@ function vSetup(){
 }
 
 function vLibrary(){
-  const pls = playlistCounts(), m = app.libMsg;
-  return `<div class="page-head"><h1>Song library</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
+  const pls = allPlaylists(), m = app.libMsg;
+  const nEd = editedCount(), em = app.edMsg;
+  return `<div class="page-head"><h1>Playlists</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
   <section class="panel">
     <p>${libSummary()}</p>
     ${lib.source === 'sample' ? `<div class="note">You're using the ${lib.songs.length}-song sample library. Replace it with your own songs below when your Sheet is ready.</div>` : ''}
-    <div class="plist">${pls.map(([p, c]) => `<div><b>${esc(p)}</b><span>${c}</span></div>`).join('') || '<p class="muted">No playlists yet.</p>'}</div>
+    <p class="muted small">Tap a playlist to choose which songs play in it and fix a year, link or start time.</p>
+    <div class="plist">${pls.map(([p, c]) => `<button data-act="editPl" data-v="${esc(p)}"><b>${esc(p)}</b><span class="n">${c}</span><span class="ed">Edit</span></button>`).join('') || '<p class="muted">No playlists yet.</p>'}</div>
     <div class="row"><button class="btn ${app.confirm === 'hist' ? 'warn' : ''} small" data-act="resetHistory">${app.confirm === 'hist' ? 'Tap again to clear play history' : 'Reset play history (' + history.size + ' played)'}</button>
     ${lib.source !== 'sample' ? `<button class="btn ghost small" data-act="useSample">Switch back to sample library</button>` : ''}</div>
+  </section>
+  <section class="panel"><h2>Your edits</h2>
+    ${nEd ? `<p class="small">${nEd} song${nEd === 1 ? '' : 's'} edited on this device. Edits stay when the Sheet reloads, but only on this device. To make them permanent, download or copy the full list and paste it over your Sheet's songs tab.</p>
+      <div class="row"><button class="btn small" data-act="exportCsv">Download CSV</button><button class="btn small" data-act="copyRows">Copy for Sheet</button>
+      <button class="btn ${app.confirm === 'edits' ? 'warn' : 'ghost'} small" data-act="clearEdits">${app.confirm === 'edits' ? 'Tap again to remove all edits' : 'Remove all edits'}</button></div>`
+    : `<p class="muted small">No edits yet. Changes you make in a playlist show up here, and you can copy them back into your Sheet.</p>`}
+    ${em ? `<div class="note ${em.kind === 'bad' ? 'bad' : 'good'}">${esc(em.text)}</div>` : ''}
   </section>
   <section class="panel"><h2>Load from your Google Sheet</h2>
     <p class="small">In the Sheet: File → Share → Publish to web, pick the songs tab and <b>Comma-separated values (.csv)</b>, then paste the link here. The app remembers it and re-reads the Sheet every time it opens.</p>
@@ -813,7 +956,7 @@ function vLibrary(){
     <input type="url" id="sheetBox" class="sheet" value="${esc(sheetUrl)}" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv">
     <div class="row"><button class="btn primary" data-act="sheetLoad" ${sheetBusy ? 'disabled' : ''}>${sheetBusy ? 'Loading…' : sheetUrl ? 'Update from Sheet' : 'Load from Sheet'}</button>
     ${sheetUrl ? `<button class="btn ghost small" data-act="sheetForget">Forget link</button>` : ''}</div>
-    <p class="muted small">Loading replaces the library with the Sheet. Play history is kept.</p>
+    <p class="muted small">Loading replaces the library with the Sheet. Play history and your edits are kept.</p>
     ${m && m.sheet ? `<div class="note ${m.kind === 'bad' ? 'bad' : m.kind === 'good' ? 'good' : ''}">${esc(m.text)}${m.problems && m.problems.length ? `<ul class="problems">${m.problems.map(p => `<li>Row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul>` : ''}</div>` : ''}
   </section>
   <section class="panel"><h2>Or paste or upload</h2>
@@ -831,9 +974,40 @@ function vLibrary(){
     ${m && !m.sheet ? `<div class="note ${m.kind === 'bad' ? 'bad' : m.kind === 'good' ? 'good' : ''}">${esc(m.text)}${m.problems && m.problems.length ? `<ul class="problems">${m.problems.map(p => `<li>Row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul>` : ''}</div>` : ''}
   </section>
   <section class="panel"><h2>Songs that didn't play</h2>
-    ${failed.length ? `<p class="muted small">The DJ marked these as broken during games. Fix their links in the Sheet and re-import.</p>
+    ${failed.length ? `<p class="muted small">The DJ marked these as broken during games. Fix their links in a playlist here, or in the Sheet.</p>
       <ul class="problems">${failed.map(f => `<li>${esc(f.artist)} — ${esc(f.title)} <span class="url">youtu.be/${esc(f.id)}</span></li>`).join('')}</ul>
       <div class="row"><button class="btn ghost small" data-act="clearFailed">Clear list</button></div>` : `<p class="muted small">None so far.</p>`}
+  </section>`;
+}
+
+function vPlaylist(){
+  const p = app.pl;
+  const inPl = s => s.playlists.includes(p);
+  const related = s => { const b = baseByKey.get(s.key), e = edits[s.key]; return inPl(s) || (b && b.playlists.includes(p)) || (e && e.pl && p in e.pl); };
+  const list = app.plAll ? songs : songs.filter(related);
+  const on = songs.filter(inPl).length;
+  const row = s => {
+    const k = s.key, checked = inPl(s);
+    return `<div class="erow ${checked ? '' : 'off'}" data-key="${esc(k)}" data-search="${esc((s.artist + ' ' + s.title + ' ' + s.year).toLowerCase())}">
+      <label class="echk"><input type="checkbox" data-ed="on" ${checked ? 'checked' : ''} aria-label="Play ${esc(s.artist)} — ${esc(s.title)} in ${esc(p)}">
+        <span class="etitle"><b>${esc(s.title)}</b><span>${esc(s.artist)}</span></span>
+        <span class="etag" ${edits[k] ? '' : 'hidden'}>Edited</span></label>
+      <div class="efields">
+        <label>Year<input type="text" inputmode="numeric" maxlength="4" data-ed="year" value="${s.year}"></label>
+        <label class="elink">YouTube link<input type="url" data-ed="link" value="https://youtu.be/${esc(s.id)}" autocomplete="off" spellcheck="false"></label>
+        <label>Start at (sec or m:ss)<input type="text" inputmode="numeric" data-ed="start" value="${s.start || 0}"></label>
+        <div class="ebtns"><a class="btn ghost small" data-test href="${esc(songUrl(s))}" target="_blank" rel="noopener">Test</a>
+          <button class="btn ghost small" data-act="resetSong" data-v="${esc(k)}" ${edits[k] ? '' : 'hidden'}>Undo edits</button></div>
+      </div>
+      <p class="emsg" role="alert"></p>
+    </div>`;
+  };
+  return `<div class="page-head"><h1>${esc(p)}</h1><button class="btn ghost small" data-act="toLibrary">Back to playlists</button></div>
+  <section class="panel">
+    <p class="small"><b id="plOn">${on}</b> songs play in this playlist. Untick a song to leave it out. Changes save as you go. Year, link and start time apply to the song in every playlist.</p>
+    <div class="efilter"><input type="search" id="plFilter" placeholder="Find a song, artist or year" value="${esc(app.plFilter || '')}" aria-label="Find a song">
+      <button class="btn ${app.plAll ? 'on' : 'ghost'} small" data-act="plAll" aria-pressed="${!!app.plAll}">${app.plAll ? 'Showing all songs' : 'Add songs from other playlists'}</button></div>
+    <div class="erows">${list.map(row).join('') || '<p class="muted">No songs.</p>'}</div>
   </section>`;
 }
 
@@ -994,12 +1168,13 @@ function vOver(){
 const root = document.getElementById('app');
 function render(){
   if (app.screen === 'game' && !app.game) app.screen = 'home';
-  root.innerHTML = app.screen === 'setup' ? vSetup() : app.screen === 'library' ? vLibrary() : app.screen === 'game' ? vGame() : vHome();
+  root.innerHTML = app.screen === 'setup' ? vSetup() : app.screen === 'library' ? vLibrary() : app.screen === 'playlist' ? vPlaylist() : app.screen === 'game' ? vGame() : vHome();
   const q = document.getElementById('qr');
   if (q){
     if (window.QRCode){ try{ new QRCode(q, { text: q.dataset.url, width: 440, height: 440, colorDark: '#17132b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }catch(e){ q.textContent = 'Could not draw the QR code. Open the link below on the music phone.'; } }
     else { q.innerHTML = '<p style="color:#17132b;font-size:14px">QR code library did not load. Type or share the link below on the music phone.</p>'; }
   }
+  if (app.screen === 'playlist') filterRows();
   const f = document.getElementById('csvFile');
   if (f) f.addEventListener('change', () => { const file = f.files && f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => { doImport(false, String(rd.result)); save(); render(); }; rd.readAsText(file); });
   save();
@@ -1020,7 +1195,29 @@ document.addEventListener('click', e => {
   if (name === 'copyHeader') return;
   render();
 });
+function filterRows(){
+  const q = String(app.plFilter || '').trim().toLowerCase();
+  document.querySelectorAll('.erow').forEach(r => { r.hidden = !!q && !r.dataset.search.includes(q); });
+}
+document.addEventListener('change', e => {
+  const t = e.target, f = t.dataset && t.dataset.ed; if (!f) return;
+  const row = t.closest('[data-key]'); if (!row) return;
+  const k = row.dataset.key;
+  const res = setEdit(k, f, t.type === 'checkbox' ? t.checked : t.value, app.pl);
+  const msg = row.querySelector('.emsg');
+  if (res.error){ msg.textContent = res.error; t.classList.add('bad'); return; }
+  msg.textContent = ''; t.classList.remove('bad');
+  if (t.type !== 'checkbox') t.value = res.value;
+  const s = songs.find(x => x.key === k);
+  row.classList.toggle('off', !s.playlists.includes(app.pl));
+  row.querySelector('.etag').hidden = !edits[k];
+  row.querySelector('[data-act=resetSong]').hidden = !edits[k];
+  row.querySelector('[data-test]').href = songUrl(s);
+  row.dataset.search = (s.artist + ' ' + s.title + ' ' + s.year).toLowerCase();
+  const n = document.getElementById('plOn'); if (n) n.textContent = songs.filter(x => x.playlists.includes(app.pl)).length;
+});
 document.addEventListener('input', e => {
+  if (e.target.id === 'plFilter'){ app.plFilter = e.target.value; filterRows(); return; }
   const i = e.target.dataset && e.target.dataset.name;
   if (i != null){ app.setup.players[+i].name = e.target.value; save(); }
 });
