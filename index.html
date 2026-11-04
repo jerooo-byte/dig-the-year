@@ -98,6 +98,8 @@ input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);
 .echk{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
 .echk input{width:24px;height:24px;accent-color:var(--accent);flex:none;margin:2px 0 0}
 .yrchg{font-family:var(--display);font-size:18px}
+.efields .elink{grid-column:1 / -1}
+.emsg{color:var(--bad);font-size:13px}
 .esel{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);cursor:pointer}
 .esel input{width:20px;height:20px;accent-color:var(--fg);margin:0}
 .pswitch{appearance:none;display:inline-flex;align-items:center;gap:10px;border:1.5px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:6px 14px 6px 6px;min-height:36px;font:700 14px var(--body);cursor:pointer}
@@ -1065,6 +1067,7 @@ function vImport(){
         <label>Title<input type="text" data-dr="title" value="${esc(x.title)}"></label>
         <label>Year<input type="text" inputmode="numeric" maxlength="4" data-dr="year" value="${x.year || ''}" class="${x.year >= 1900 ? '' : 'bad'}"></label>
         <label>Start (sec or m:ss)<input type="text" inputmode="numeric" data-dr="start" value="${x.start || 0}"></label>
+        <label class="elink">YouTube link<input type="url" data-dr="link" value="https://youtu.be/${esc(x.id)}" autocomplete="off" spellcheck="false"></label>
       </div>
       <div class="ebtns">
         ${x.on ? `<button class="pswitch ${x.off ? '' : 'on'}" role="switch" aria-checked="${!x.off}" data-act="togglePlay" data-v="${i}"><span class="knob"></span>${x.off ? 'Not played in games' : 'Plays in games'}</button>` : ''}
@@ -1307,6 +1310,14 @@ document.addEventListener('change', e => {
   const t = e.target, f = t.dataset && t.dataset.dr; if (!f || !app.draft) return;
   const row = t.closest('[data-i]'), x = app.draft.songs[+row.dataset.i];
   if (f === 'year'){ const v = t.value.trim(); const ok = /^\d{4}$/.test(v) && +v >= 1900 && +v <= 2100; t.classList.toggle('bad', !ok); if (ok){ x.year = +v; x.note = ''; } }
+  else if (f === 'link'){
+    const id = ytId(t.value), clash = id && app.draft.songs.find(o => o !== x && o.id === id);
+    const msg = !id ? 'That is not a YouTube link.' : clash ? 'That video is already in this playlist: ' + clash.artist + ' — ' + clash.title + '.' : '';
+    t.classList.toggle('bad', !!msg); t.title = msg;
+    let m = row.querySelector('.emsg'); if (!m){ m = document.createElement('p'); m.className = 'emsg'; t.closest('.efields').after(m); }
+    m.textContent = msg;
+    if (!msg){ x.id = id; t.value = 'https://youtu.be/' + id; const a = row.querySelector('a.btn'); if (a) a.href = songUrl(x); }
+  }
   else if (f === 'start'){ const v = parseStart(t.value); if (v != null){ x.start = v; t.value = v; } else t.value = x.start || 0; }
   else { x[f] = t.value; x.nameNote = ''; }
   const left = (x.nameNote ? 1 : 0) + (x.note ? 1 : 0);
