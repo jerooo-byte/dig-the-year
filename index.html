@@ -411,28 +411,52 @@ const lq = s => '"' + String(s).replace(/["\\]/g, ' ').trim() + '"';
 const mainArtist = a => String(a).split(/\s+(?:ft\.?|feat\.?|featuring|with|x|&|and|vs\.?)\s+|,\s*/i)[0].trim();
 const bareTitle = t => String(t).replace(/\s*[\(\[](?:ft\.?|feat\.?|featuring|with)\b[^\)\]]*[\)\]]/gi, '').replace(/\s+(?:ft\.?|feat\.?)\s+.*$/i, '').trim();
 /* Earliest release year in MusicBrainz for a confident match. Returns { year, note } (note = why to check). */
+/* Release year = the song's FIRST OFFICIAL RELEASE (rule agreed with the owner, 2026-11-04).
+   MusicBrainz lists every release a recording is on, including promos, bootlegs, compilations and
+   mis-dated entries; taking the earliest of all of them made many years one too early. So only releases
+   that are Official, of type Single, Album or EP, with no secondary type (no Compilation, Live, Remix,
+   DJ-mix...) count, and only for recordings whose artist and title really match. The earliest such
+   release gives the year. Returns { year, note, src, sure }: src describes the release used; sure is
+   false when the answer rests on thin evidence (then the year is only proposed, never pre-ticked). */
+const normT = t => bareTitle(t).replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, 'and').replace(/[^\p{L}\p{N}]+/gu, '');
+const COUNTS = ['Single', 'Album', 'EP'];
 async function lookupYear(s){
   const q = 'recording:' + lq(bareTitle(s.title)) + ' AND artist:' + lq(mainArtist(s.artist));
   let j = null;
   for (let tries = 0; tries < 3 && !j; tries++){
     try{
-      const r = await fetch('https://musicbrainz.org/ws/2/recording?fmt=json&limit=25&query=' + encodeURIComponent(q));
+      const r = await fetch('https://musicbrainz.org/ws/2/recording?fmt=json&limit=50&query=' + encodeURIComponent(q));
       if (r.status === 503){ await sleep(1500); continue; }
       if (!r.ok) break;
       j = await r.json();
     }catch(e){ await sleep(1000); }
   }
-  const noYear = why => s.upYear ? { year: s.upYear, note: why + ', so this is the YouTube upload year.' } : { year: null, note: why + '. Type the year in.' };
+  const noYear = why => s.upYear ? { year: s.upYear, note: why + ', so this is the YouTube upload year.', sure: false } : { year: null, note: why + '. Type the year in.', sure: false };
   if (!j) return noYear('Year lookup failed');
-  const years = (j.recordings || []).filter(r => r.score >= 90 && r['first-release-date']).map(r => +r['first-release-date'].slice(0, 4)).filter(y => y >= 1900);
-  if (!years.length) return noYear('Not found in the music database');
-  const year = Math.min(...years);
-  const count = {}; years.forEach(y => count[y] = (count[y] || 0) + 1);
-  const common = +Object.keys(count).sort((a, b) => count[b] - count[a])[0];
-  if (s.upYear && year > s.upYear) return { year, note: 'Found ' + year + ', but the video was uploaded in ' + s.upYear + '.' };
-  if (common - year > 1) return { year, note: 'Sources disagree: earliest ' + year + ', most listed ' + common + '.' };
-  if (years.length === 1) return { year, note: 'Only one match found.' };
-  return { year, note: '' };
+  const wantT = normT(s.title), wantA = normT(mainArtist(s.artist));
+  const recs = (j.recordings || []).filter(r => r.score >= 80 && normT(r.title || '') === wantT &&
+    (r['artist-credit'] || []).some(c => { const n = normT(c.name || (c.artist || {}).name || ''); return n && (n === wantA || n.includes(wantA) || wantA.includes(n)); }));
+  if (!recs.length) return noYear('Not found in the music database');
+  const official = [];
+  recs.forEach(r => (r.releases || []).forEach(rel => {
+    const rg = rel['release-group'] || {}, y = +String(rel.date || '').slice(0, 4);
+    if (rel.status === 'Official' && COUNTS.includes(rg['primary-type']) && !(rg['secondary-types'] || []).length && y >= 1900)
+      official.push({ y, date: rel.date, title: rel.title, type: rg['primary-type'], rg: rg.id });
+  }));
+  if (!official.length){
+    const ys = recs.map(r => +String(r['first-release-date'] || '').slice(0, 4)).filter(y => y >= 1900);
+    if (!ys.length) return noYear('No dated release found');
+    const y = Math.min(...ys);
+    return { year: y, note: 'No official single or album found; ' + y + ' is the earliest date of any release.', sure: false };
+  }
+  official.sort((a, b) => a.date < b.date ? -1 : 1);
+  const first = official[0], year = first.y;
+  const src = first.type + ' "' + first.title + '", ' + first.date;
+  const groupsThatYear = new Set(official.filter(o => o.y === year).map(o => o.rg)).size;
+  let note = '';
+  if (s.upYear && year > s.upYear) note = 'Found ' + year + ' (' + src + '), but the video was uploaded in ' + s.upYear + '.';
+  else if (groupsThatYear === 1 && official.length > 1 && official[1].y > year) note = 'Only one release in ' + year + ' (' + src + '); the next is from ' + official[1].y + '.';
+  return { year, note, src, sure: !note };
 }
 const songUrl = s => 'https://youtu.be/' + s.id + (s.start ? '?t=' + s.start : '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -495,7 +519,9 @@ async function recheckYears(D, onlySelected){
     const t0 = Date.now();
     const r = await lookupYear(Object.assign({}, s, { upYear: null }));
     if (run !== importRun || D.stage !== 'recheck') return;
-    s.found = r.year; s.foundNote = r.note; s.checked = true; s.accept = r.year != null && r.year !== s.year;
+    s.found = r.year; s.foundNote = r.note; s.foundSrc = r.src || ''; s.checked = true;
+    s.unsure = !r.sure || Math.abs((r.year || 0) - (s.year || 0)) === 1;
+    s.accept = r.year != null && r.year !== s.year && !s.unsure;
     D.done++; saveDraft(); render();
     await sleep(Math.max(0, 1100 - (Date.now() - t0)));
   }
@@ -735,9 +761,9 @@ const A = {
   togglePlay(i){ const x = app.draft.songs[+i]; x.off = !x.off; saveDraft(); },
   stopRecheck(){ const D = app.draft; if (D && D.stage === 'recheck'){ importRun++; D.stage = 'approve'; saveDraft(); } },
   approveYears(){ const D = app.draft; let n = 0;
-    D.songs.forEach(x => { if (x.checked && x.accept && x.found != null && x.found !== x.year){ x.year = x.found; x.note = ''; n++; } delete x.found; delete x.foundNote; delete x.checked; delete x.accept; });
+    D.songs.forEach(x => { if (x.checked && x.accept && x.found != null && x.found !== x.year){ x.year = x.found; x.note = ''; n++; } delete x.found; delete x.foundNote; delete x.foundSrc; delete x.unsure; delete x.checked; delete x.accept; });
     D.stage = 'review'; app.draftMsg = { kind: 'good', text: plural(n, 'year') + ' updated. Press Save to keep the changes.' }; saveDraft(); window.scrollTo(0, 0); },
-  keepYears(){ const D = app.draft; D.songs.forEach(x => { delete x.found; delete x.foundNote; delete x.checked; delete x.accept; }); D.stage = 'review'; saveDraft(); },
+  keepYears(){ const D = app.draft; D.songs.forEach(x => { delete x.found; delete x.foundNote; delete x.foundSrc; delete x.unsure; delete x.checked; delete x.accept; }); D.stage = 'review'; saveDraft(); },
   flagView(v){ app.flagView = app.flagView === v ? '' : v; window.scrollTo(0, 0); },
   dropSong(i){ const s = app.draft.songs[+i]; s.on = !s.on; saveDraft(); },
   editList(id){ const l = myLists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { listId: id, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.flagView = ''; app.screen = 'import'; window.scrollTo(0, 0); },
@@ -1031,11 +1057,13 @@ function vImport(){
     const nAcc = diff.filter(x => x.accept).length;
     return head + `<section class="panel"><h2>Approve new years</h2>
       <p class="small">${plural(done.length, 'song')} rechecked: <b>${diff.length} with a different year</b>, ${same} unchanged${none ? `, ${none} not found (kept as they are)` : ''}.</p>
-      ${diff.length ? `<p class="muted small">Untick any change you don't want. Tap Play to listen if you're unsure.</p>` : ''}
+      ${diff.length ? `<p class="muted small">The rule is the song's first official release (single, album or EP; no compilations, live or promo releases). Clear changes are ticked; changes of only one year, or with thin evidence, are left unticked for you to decide.</p>` : ''}
     </section>
     ${diff.length ? `<div class="erows">${diff.map(x => { const i = D.songs.indexOf(x); return `<div class="erow ${x.accept ? 'flag' : 'off'}">
       <label class="echk"><input type="checkbox" data-acc="${i}" ${x.accept ? 'checked' : ''}>
         <span><b>${esc(x.artist)} — ${esc(x.title)}</b><br><span class="yrchg">${x.year || '?'} → <b>${x.found}</b></span></span></label>
+      ${x.foundSrc ? `<p class="small muted">From: ${esc(x.foundSrc)}</p>` : ''}
+      ${x.unsure ? `<p class="enote">Unsure${Math.abs(x.found - x.year) === 1 ? ' (only one year apart)' : ''}: left unticked. Tick it if you agree.</p>` : ''}
       ${x.foundNote ? `<p class="small muted">${esc(x.foundNote)}</p>` : ''}
       <div class="ebtns"><a class="btn ghost small" href="${esc(songUrl(x))}" target="_blank" rel="noopener">Play</a></div></div>`; }).join('')}</div>` : ''}
     <section class="panel"><div class="row">
