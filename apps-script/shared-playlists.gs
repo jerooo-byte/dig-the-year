@@ -69,6 +69,7 @@ function cleanSongs_(list) {
       year: year,
       start: Math.max(0, Math.floor(Number(s.start) || 0))
     });
+    if (s.off === true) songs[songs.length - 1].off = true; // kept in the playlist, never drawn in a game
   });
   const data = JSON.stringify(songs);
   if (!songs.length || data.length > 49000) return null; // a cell holds 50,000 characters

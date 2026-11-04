@@ -98,6 +98,15 @@ input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);
 .echk{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
 .echk input{width:24px;height:24px;accent-color:var(--accent);flex:none;margin:2px 0 0}
 .yrchg{font-family:var(--display);font-size:18px}
+.esel{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);cursor:pointer}
+.esel input{width:20px;height:20px;accent-color:var(--fg);margin:0}
+.pswitch{appearance:none;display:inline-flex;align-items:center;gap:10px;border:1.5px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:6px 14px 6px 6px;min-height:36px;font:700 14px var(--body);cursor:pointer}
+.pswitch .knob{width:38px;height:22px;border-radius:99px;background:var(--line);position:relative;flex:none}
+.pswitch .knob::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--fg);transition:left .15s}
+.pswitch.on{color:var(--good);border-color:var(--good)}
+.pswitch.on .knob{background:var(--good)}
+.pswitch.on .knob::after{left:19px}
+.erow.muteplay .efields{opacity:.6}
 .enote{color:var(--accent);font-size:14px;font-weight:700}
 .eraw{overflow-wrap:anywhere}
 .efields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 80px 120px;gap:8px 10px}
@@ -250,8 +259,10 @@ function ytId(link){
 const HEAD = {
   artist:['artist','artists'], title:['title','song','song_title'], year:['year','original_year','release_year'],
   link:['youtube_link','link','youtube','url','youtube_url'], start:['start_sec','start','start_second','start_seconds'],
-  playlists:['playlists','playlist']
+  playlists:['playlists','playlist'], play:['play','plays','in_game','plays_in_game']
 };
+/* A song with off: true stays in its playlist but is never drawn in a game ("Plays in games" switch). */
+const offWord = v => /^(no|n|0|false|off|x)$/i.test(String(v).trim());
 function parseStart(v){
   v = String(v).trim(); if (!v) return 0;
   let m = v.match(/^(\d+)$/); if (m) return +m[1];
@@ -313,7 +324,7 @@ function allLists(){
    the pool then has the same chance; newGame shuffles it once, so nothing repeats within a game. */
 function selectionSongs(sel){
   const seen = new Map();
-  allLists().filter(l => sel.includes(l.key)).forEach(l => l.songs.forEach(s => { if (!seen.has(s.id)) seen.set(s.id, s); }));
+  allLists().filter(l => sel.includes(l.key)).forEach(l => l.songs.forEach(s => { if (!s.off && !seen.has(s.id)) seen.set(s.id, s); }));
   return [...seen.values()];
 }
 /* Keep the selection to playlists that exist; old saves used names or '__all'. Empty → all admin playlists. */
@@ -459,7 +470,7 @@ async function startCsv(text, name, keep){
     if (seen[id]){ skipped.push('Row ' + r.rowNo + ': ' + artist + ' — ' + title + ': same video as row ' + seen[id]); continue; }
     seen[id] = r.rowNo;
     const year = /^\d{4}$/.test(yr) && +yr >= 1900 && +yr <= 2100 ? +yr : null;
-    songs.push({ id, artist, title, year, start: parseStart(g('start')) || 0, upYear: null, note: yr && !year ? 'The file said "' + yr + '", which is not a year.' : '', on: true, look: !year });
+    songs.push({ id, artist, title, year, start: parseStart(g('start')) || 0, off: offWord(g('play')), upYear: null, note: yr && !year ? 'The file said "' + yr + '", which is not a year.' : '', on: true, look: !year });
   }
   if (!songs.length) return fail('No usable songs in that file. ' + skipped.slice(0, 3).join('; '));
   const run = ++importRun;
@@ -472,9 +483,9 @@ async function startCsv(text, name, keep){
 /* Look up the release year of every draft song marked look, about one a second (MusicBrainz's limit). */
 /* Admin: look every kept song up again with its current artist/title. Results are only proposals
    (s.found, s.foundNote); nothing changes until the admin approves them on the next screen. */
-async function recheckYears(D){
+async function recheckYears(D, onlySelected){
   const run = ++importRun;
-  const todo = D.songs.filter(s => s.on);
+  const todo = D.songs.filter(s => s.on && (!onlySelected || s.sel));
   todo.forEach(s => { delete s.found; delete s.foundNote; s.checked = false; });
   D.stage = 'recheck'; D.done = 0; D.total = todo.length; saveDraft(); render();
   for (const s of todo){
@@ -529,11 +540,11 @@ function cleanList(o){
   (Array.isArray(o.songs) ? o.songs : []).forEach(r => {
     const id = String(r.id || ''), year = +r.year;
     if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id) || !(year >= 1900 && year <= 2100)) return;
-    seen.add(id); songs.push({ id, artist: String(r.artist || '').slice(0, 200), title: String(r.title || '').slice(0, 200), year, start: Math.max(0, +r.start || 0) });
+    seen.add(id); songs.push({ id, artist: String(r.artist || '').slice(0, 200), title: String(r.title || '').slice(0, 200), year, start: Math.max(0, +r.start || 0), off: r.off === true });
   });
   return songs.length ? { id: String(o.id), name: String(o.name || 'Playlist').slice(0, 60), created: o.created || '', songs, main: o.main === true } : null;
 }
-const songsOut = songs => songs.map(s => ({ id: s.id, artist: s.artist, title: s.title, year: s.year, start: s.start || 0 }));
+const songsOut = songs => songs.map(s => Object.assign({ id: s.id, artist: s.artist, title: s.title, year: s.year, start: s.start || 0 }, s.off ? { off: true } : {}));
 /* POST to the Apps Script. text/plain keeps it a "simple" request, so there is no CORS preflight. */
 async function api(action, data){
   const body = Object.assign({ action }, data, app.adminPw ? { password: app.adminPw } : {});
@@ -713,6 +724,10 @@ const A = {
   exportCsv(key){ const l = allLists().find(x => x.key === key); if (l) downloadCsv(l.name, l.songs); },
   exportDraft(){ const D = app.draft; downloadCsv(((document.getElementById('dName') || {}).value || D.name || 'playlist').trim(), D.songs.filter(x => x.on)); },
   recheck(){ if (app.adminPw && app.draft) recheckYears(app.draft); return 'keep'; },
+  recheckSel(){ const D = app.draft; if (app.adminPw && D && D.songs.some(x => x.on && x.sel)) recheckYears(D, true); return 'keep'; },
+  selAll(v){ app.draft.songs.forEach(x => { if (x.on) x.sel = v === '1'; }); saveDraft(); },
+  playSel(v){ app.draft.songs.forEach(x => { if (x.on && x.sel) x.off = v !== '1'; }); saveDraft(); },
+  togglePlay(i){ const x = app.draft.songs[+i]; x.off = !x.off; saveDraft(); },
   stopRecheck(){ const D = app.draft; if (D && D.stage === 'recheck'){ importRun++; D.stage = 'approve'; saveDraft(); } },
   approveYears(){ const D = app.draft; let n = 0;
     D.songs.forEach(x => { if (x.checked && x.accept && x.found != null && x.found !== x.year){ x.year = x.found; x.note = ''; n++; } delete x.found; delete x.foundNote; delete x.checked; delete x.accept; });
@@ -738,7 +753,7 @@ const A = {
    and imported again. The BOM makes Excel read accents correctly. */
 function downloadCsv(name, songs){
   const cell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
-  const rows = [['artist', 'title', 'year', 'youtube_link', 'start_sec'], ...songs.map(x => [x.artist, x.title, x.year || '', 'https://youtu.be/' + x.id, x.start || 0])];
+  const rows = [['artist', 'title', 'year', 'youtube_link', 'start_sec', 'play'], ...songs.map(x => [x.artist, x.title, x.year || '', 'https://youtu.be/' + x.id, x.start || 0, x.off ? 'no' : 'yes'])];
   const file = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'playlist') + '.csv';
   try{
     const a = document.createElement('a');
@@ -763,7 +778,7 @@ async function saveDraftList(){
   if (!name){ app.draftMsg = { kind: 'bad', text: 'Give the playlist a name.' }; render(); return; }
   if (!songs.length){ app.draftMsg = { kind: 'bad', text: 'Keep at least one song.' }; render(); return; }
   if (bad.length){ app.draftMsg = { kind: 'bad', text: bad.length + ' song' + (bad.length === 1 ? ' needs' : 's need') + ' an artist, a title and a 4-digit year.' }; render(); return; }
-  const clean = songs.map(x => ({ id: x.id, artist: x.artist.trim(), title: x.title.trim(), year: +x.year, start: +x.start || 0 }));
+  const clean = songs.map(x => Object.assign({ id: x.id, artist: x.artist.trim(), title: x.title.trim(), year: +x.year, start: +x.start || 0 }, x.off ? { off: true } : {}));
   if (D.sheetId || (app.adminPw && D.main)){
     app.draftMsg = { kind: '', text: 'Saving…' }; render();
     try{
@@ -875,7 +890,7 @@ function vSetup(){
   const canStart = have >= n + 1;
   const plChip = l => {
     const on = S.sel.includes(l.key);
-    return `<button class="chip ${on ? 'sel' : ''}" data-act="togglePl" data-v="${esc(l.key)}" aria-pressed="${on}">${esc(l.name)} <span class="n">${l.songs.length}</span></button>`;
+    return `<button class="chip ${on ? 'sel' : ''}" data-act="togglePl" data-v="${esc(l.key)}" aria-pressed="${on}">${esc(l.name)} <span class="n">${l.songs.filter(s => !s.off).length}</span></button>`;
   };
   const group = (kind, label) => { const L = allLists().filter(l => l.kind === kind); return L.length ? `<p class="grp">${label}</p><div class="chips">${L.map(plChip).join('')}</div>` : ''; };
   return `<div class="page-head"><h1>New game</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
@@ -1005,25 +1020,34 @@ function vImport(){
       ${x.nameNote ? `<p class="enote">Name: ${esc(x.nameNote)}</p>` : ''}
       ${x.note ? `<p class="enote">Year: ${esc(x.note)}</p>` : ''}
       ${x.raw ? `<p class="small muted eraw">YouTube: ${esc(x.raw)}</p>` : ''}
+      ${app.adminPw && x.on ? `<label class="esel"><input type="checkbox" data-sel="${i}" ${x.sel ? 'checked' : ''}> Select</label>` : ''}
       <div class="efields">
         <label>Artist<input type="text" data-dr="artist" value="${esc(x.artist)}"></label>
         <label>Title<input type="text" data-dr="title" value="${esc(x.title)}"></label>
         <label>Year<input type="text" inputmode="numeric" maxlength="4" data-dr="year" value="${x.year || ''}" class="${x.year >= 1900 ? '' : 'bad'}"></label>
         <label>Start (sec or m:ss)<input type="text" inputmode="numeric" data-dr="start" value="${x.start || 0}"></label>
       </div>
-      <div class="ebtns"><a class="btn ghost small" href="${esc(songUrl(x))}" target="_blank" rel="noopener">Play</a>
-        <button class="btn ghost small" data-act="dropSong" data-v="${i}">${x.on ? 'Leave out' : 'Put back'}</button></div>
+      <div class="ebtns">
+        ${x.on ? `<button class="pswitch ${x.off ? '' : 'on'}" role="switch" aria-checked="${!x.off}" data-act="togglePlay" data-v="${i}"><span class="knob"></span>${x.off ? 'Not played in games' : 'Plays in games'}</button>` : ''}
+        <a class="btn ghost small" href="${esc(songUrl(x))}" target="_blank" rel="noopener">Listen</a>
+        <button class="btn ghost small" data-act="dropSong" data-v="${i}">${x.on ? 'Remove from playlist' : 'Put back'}</button></div>
     </div>`; }).join('');
   const dm = app.draftMsg;
   return head + `<section class="panel">
       <label for="dName" class="small muted">Playlist name</label>
       <input type="text" id="dName" class="sheet" maxlength="60" value="${esc(D.name)}" placeholder="e.g. Summer party">
-      <p class="small">${plural(D.songs.filter(x => x.on).length, 'song')}. ${flagged ? `<b>${flagged} need a check</b>: they're at the top with the reason. Fixing a name or year clears its flag. ` : 'Every year was found. Spot-check a few anyway. '}A wrong year spoils the game, so check what you're unsure of.</p>
+      <p class="small">${plural(D.songs.filter(x => x.on).length, 'song')}${D.songs.some(x => x.on && x.off) ? ` (${D.songs.filter(x => x.on && x.off).length} switched off for games)` : ''}. ${flagged ? `<b>${flagged} need a check</b>: they're at the top with the reason. Fixing a name or year clears its flag. ` : 'Every year was found. Spot-check a few anyway. '}A wrong year spoils the game, so check what you're unsure of.</p>
       ${D.skipped && D.skipped.length ? `<details class="small muted"><summary>${plural(D.skipped.length, 'row')} in the file skipped</summary><ul class="problems">${D.skipped.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
       ${flagged ? `<div class="row">
         ${nameN ? `<button class="btn ${fv === 'name' ? 'on' : 'ghost'} small" data-act="flagView" data-v="name" aria-pressed="${fv === 'name'}">Names to check · ${nameN}</button>` : ''}
         ${yearN ? `<button class="btn ${fv === 'year' ? 'on' : 'ghost'} small" data-act="flagView" data-v="year" aria-pressed="${fv === 'year'}">Years to check · ${yearN}</button>` : ''}
         ${fv ? `<button class="btn ghost small" data-act="flagView" data-v="">Show all songs</button>` : ''}</div>` : ''}
+      ${app.adminPw ? (() => { const nSel = D.songs.filter(x => x.on && x.sel).length; return `<div class="block"><h3>Recheck years</h3>
+        <p class="muted small">Looks songs up again with the names as they are now. You approve each change.</p>
+        <div class="row"><button class="btn ghost small" data-act="recheck">Recheck all years</button>
+          <button class="btn ghost small" data-act="recheckSel" ${nSel ? '' : 'disabled'}>Recheck selected years (${nSel})</button></div>
+        <div class="row"><button class="btn ghost small" data-act="selAll" data-v="1">Select all</button><button class="btn ghost small" data-act="selAll" data-v="0">Select none</button>
+          ${nSel ? `<button class="btn ghost small" data-act="playSel" data-v="1">Selected: play in games</button><button class="btn ghost small" data-act="playSel" data-v="0">Selected: don't play</button>` : ''}</div></div>`; })() : ''}
     </section>
     <div class="erows">${rows}</div>
     <section class="panel">
@@ -1031,7 +1055,6 @@ function vImport(){
       ${app.adminPw && !D.listId ? `<div class="row"><button class="btn small ${D.main ? 'on' : 'ghost'}" data-act="draftMain" aria-pressed="${!!D.main}">${D.main ? '✓ ' : ''}Main playlist (always available)</button></div>` : ''}
       ${app.adminPw ? `<div class="row"><button class="btn ghost small" data-act="exportDraft">Export CSV</button><span class="muted small">Downloads the playlist as it is on this screen, to edit in a spreadsheet.</span></div>
         <div class="row"><label class="btn ghost small" for="replaceCsv">Replace songs from CSV</label><input type="file" id="replaceCsv" accept=".csv,.tsv,.txt,text/csv" class="vh"><span class="muted small">Loads an edited CSV in place of the songs above. Missing years are looked up; nothing is stored until you Save.</span></div>` : ''}
-      ${app.adminPw ? `<div class="row"><button class="btn ghost" data-act="recheck">Recheck all years</button><span class="muted small">Looks every song up again with the names as they are now. You approve each change.</span></div>` : ''}
       <div class="row"><button class="btn primary big" data-act="saveDraft">${D.sheetId ? 'Save changes for everyone' : app.adminPw && D.main ? 'Save as main playlist' : SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
     </section>`;
 }
@@ -1217,6 +1240,9 @@ document.addEventListener('click', e => {
   render();
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.sel != null && app.draft){
+    app.draft.songs[+e.target.dataset.sel].sel = e.target.checked; saveDraft(); render(); return;
+  }
   if (e.target.dataset && e.target.dataset.acc != null && app.draft){
     const x = app.draft.songs[+e.target.dataset.acc]; x.accept = e.target.checked; saveDraft(); render(); return;
   }
