@@ -12,6 +12,10 @@
  * Anyone with the game can list playlists and add a player playlist. Only someone who sends the admin
  * password can add a main playlist, edit, delete, or switch a playlist between main and player.
  * The password lives only in Script properties, never in the website's code.
+ *
+ * Optional second year source: add the Script property DISCOGS_TOKEN (a personal access token from
+ * discogs.com → Settings → Developers). The game then asks this script (GET ?discogs=1&artist=…&title=…)
+ * for the song's earliest Discogs release year; the token never leaves the script.
  */
 const SHEET_NAME = 'playlists';
 const MAX_SONGS = 400;
@@ -32,7 +36,8 @@ function rows_() {
   return n ? sh.getRange(1, 1, n, 5).getValues() : [];
 }
 
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.discogs) return json_(discogs_(e.parameter));
   const out = [];
   rows_().forEach(function (r) {
     if (!r[0] || !r[3]) return;
@@ -48,6 +53,50 @@ function doGet() {
   });
   out.reverse();
   return json_({ playlists: out });
+}
+
+/* Discogs lookup: earliest release of this artist with this track, leaving out compilations, promos,
+   bootlegs (Unofficial Release) and test pressings. Answers are cached for 6 hours; at most 1500
+   Discogs requests an hour go out, so nobody can run up the token's quota through this script. */
+const DG_SKIP = ['Compilation', 'Promo', 'Unofficial Release', 'Test Pressing', 'Mixed', 'Partially Mixed', 'Transcription'];
+function dgNorm_(t) {
+  return String(t || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s*\(\d+\)$/, '').replace(/\*/g, '').replace(/&/g, 'and').replace(/^the\s+/, '').replace(/[^a-z0-9]+/g, '');
+}
+function discogs_(p) {
+  const token = PropertiesService.getScriptProperties().getProperty('DISCOGS_TOKEN');
+  if (!token) return { ok: false, error: 'notoken' };
+  const artist = String(p.artist || '').trim().slice(0, 100), title = String(p.title || '').trim().slice(0, 150);
+  if (!artist || !title) return { ok: false, error: 'bad request' };
+  const cache = CacheService.getScriptCache();
+  const key = 'dg' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, artist + '|' + title));
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  const n = Number(cache.get('dgcount') || 0);
+  if (n >= 1500) return { ok: false, error: 'busy' };
+  cache.put('dgcount', String(n + 1), 3600);
+  const url = 'https://api.discogs.com/database/search?type=release&sort=year&sort_order=asc&per_page=100' +
+    '&artist=' + encodeURIComponent(artist) + '&track=' + encodeURIComponent(title);
+  const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true,
+    headers: { 'Authorization': 'Discogs token=' + token, 'User-Agent': 'DigTheYear/1.0' } });
+  if (r.getResponseCode() !== 200) return { ok: false, error: 'busy' };
+  const want = dgNorm_(artist);
+  let best = null;
+  (JSON.parse(r.getContentText()).results || []).forEach(function (x) {
+    const y = Number(x.year), fmt = x.format || [];
+    const who = dgNorm_(String(x.title || '').split(' - ')[0]);
+    if (!(y >= 1900) || fmt.some(function (f) { return DG_SKIP.indexOf(f) >= 0; })) return;
+    if (!who || !(who === want || who.indexOf(want) >= 0 || want.indexOf(who) >= 0)) return;
+    if (!best || y < best.y) best = { y: y, x: x, fmt: fmt };
+  });
+  let out = { ok: true, year: null };
+  if (best) {
+    const f = best.fmt, kind = f.indexOf('Single') >= 0 ? 'Single' : f.indexOf('EP') >= 0 ? 'EP' : (f.indexOf('Album') >= 0 || f.indexOf('LP') >= 0) ? 'Album' : (f[0] || 'Release');
+    const rel = String(best.x.title || '').split(' - ').slice(1).join(' - ');
+    out = { ok: true, year: best.y, src: kind + ' "' + rel + '", ' + best.y + (best.x.country ? ', ' + best.x.country : '') };
+  }
+  cache.put(key, JSON.stringify(out), 21600);
+  return out;
 }
 
 function cleanName_(v) {
