@@ -451,7 +451,7 @@ const saveDraft = () => store.set('nd_draft', app.draft);
    SHARED_URL is a Google Apps Script web app (apps-script/shared-playlists.gs) over a Sheet only the owner
    can open. GET lists the playlists; POST can only add one. Nobody can edit or delete through it: the owner
    tidies up by deleting rows in the Sheet. Cached in nd_shared so the list shows instantly and offline. */
-const SHARED_URL = '';
+const SHARED_URL = 'https://script.google.com/macros/s/AKfycbw-kOuPZVFAFq4kfTznaDVXg6gNow93sdYgfTfxKu3FO5uSzPHFjALikKmpUOAM2F5u/exec';
 let shared = store.get('nd_shared', null) || { lists: [], at: 0 };
 async function loadShared(){
   if (!SHARED_URL) return;
