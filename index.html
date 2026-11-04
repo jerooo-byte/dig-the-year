@@ -442,7 +442,7 @@ async function startImport(url, name){
 }
 /* New playlist from a CSV file: artist, title, youtube_link required; year and start_sec optional.
    Rows without a year get the same release-year lookup as a YouTube import. */
-async function startCsv(text, name){
+async function startCsv(text, name, keep){
   const rows = parseTable(text).map((r, i) => (r.rowNo = i + 1, r)).filter(r => r.some(c => String(c).trim() !== ''));
   const fail = msg => { app.impMsg = msg; render(); };
   if (rows.length < 2) return fail('That file has no songs. The first row must be the column names, then one song per row.');
@@ -464,7 +464,8 @@ async function startCsv(text, name){
   if (!songs.length) return fail('No usable songs in that file. ' + skipped.slice(0, 3).join('; '));
   const run = ++importRun;
   app.draftMsg = null; app.impMsg = null; app.flagView = '';
-  app.draft = { name, songs, skipped, stage: 'review', done: 0, main: !!app.adminPw };
+  /* keep = { sheetId, listId, main } when an admin replaces the songs of an existing playlist from a CSV. */
+  app.draft = Object.assign({ name, songs, skipped, stage: 'review', done: 0, main: !!app.adminPw }, keep || {});
   app.screen = 'import'; window.scrollTo(0, 0);
   await lookupYears(app.draft, run);
 }
@@ -709,6 +710,8 @@ const A = {
   importYt(){ const box = document.getElementById('ytUrl'); app.ytUrl = box ? box.value : ''; const name = newName(); if (name) startImport(app.ytUrl, name); else render(); return 'keep'; },
   stopLookup(){ const D = app.draft; if (!D || D.stage !== 'years') return; D.songs.filter(x => x.look).forEach(x => { x.look = false; x.note = (x.note ? x.note + ' ' : '') + (x.upYear ? 'Not looked up, so this is the YouTube upload year.' : 'Not looked up. Type the year in.'); }); D.stage = 'review'; saveDraft(); },
   cancelDraft(){ importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library'; },
+  exportCsv(key){ const l = allLists().find(x => x.key === key); if (l) downloadCsv(l.name, l.songs); },
+  exportDraft(){ const D = app.draft; downloadCsv(((document.getElementById('dName') || {}).value || D.name || 'playlist').trim(), D.songs.filter(x => x.on)); },
   recheck(){ if (app.adminPw && app.draft) recheckYears(app.draft); return 'keep'; },
   stopRecheck(){ const D = app.draft; if (D && D.stage === 'recheck'){ importRun++; D.stage = 'approve'; saveDraft(); } },
   approveYears(){ const D = app.draft; let n = 0;
@@ -731,6 +734,19 @@ const A = {
   copyFile(name){ const l = admin.lists.find(x => x.name === name); if (!l) return; adminDo('Copying "' + name + '" into the playlist store', () => api('add', { name, songs: songsOut(l.songs), main: true })); return 'keep'; },
   draftMain(){ app.draft.main = !app.draft.main; saveDraft(); },
 };
+/* Admin export: a CSV with the same columns the CSV import reads, so it can be edited in a spreadsheet
+   and imported again. The BOM makes Excel read accents correctly. */
+function downloadCsv(name, songs){
+  const cell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  const rows = [['artist', 'title', 'year', 'youtube_link', 'start_sec'], ...songs.map(x => [x.artist, x.title, x.year || '', 'https://youtu.be/' + x.id, x.start || 0])];
+  const file = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'playlist') + '.csv';
+  try{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = file; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }catch(e){ app.libMsg = { kind: 'bad', text: 'This browser blocked the download.' }; render(); }
+}
 /* The name typed in "New playlist"; asks for it if empty. */
 function newName(){
   const v = ((document.getElementById('newName') || {}).value || '').trim();
@@ -886,6 +902,7 @@ function vLibrary(){
   const row = (l, btns) => `<div class="lrow"><div class="lname"><b>${esc(l.name)}</b><span>${plural(l.songs.length, 'song')}</span></div><div class="ebtns">${btns}</div></div>`;
   const delBtn = (act, id, conf) => `<button class="btn ${app.confirm === conf ? 'warn' : 'ghost'} small" data-act="${act}" data-v="${esc(id)}">${app.confirm === conf ? 'Tap again to delete' : 'Delete'}</button>`;
   const adminBtns = l => l.file ? '' : `<button class="btn ghost small" data-act="sEdit" data-v="${esc(l.list.id)}">Edit</button>
+       <button class="btn ghost small" data-act="exportCsv" data-v="${esc(l.key)}">Export CSV</button>
        <button class="btn ghost small" data-act="sMain" data-v="${esc(l.list.id)}">${l.list.main ? 'Make player playlist' : 'Make main'}</button>
        ${delBtn('sDel', l.list.id, 'sdel:' + l.list.id)}`;
   const L = allLists(), mains = L.filter(l => l.kind === 'admin'), players = L.filter(l => l.kind === 'shared'), local = L.filter(l => l.kind === 'mine');
@@ -1012,6 +1029,8 @@ function vImport(){
     <section class="panel">
       ${dm ? `<div class="note ${dm.kind}">${esc(dm.text)}</div>` : ''}
       ${app.adminPw && !D.listId ? `<div class="row"><button class="btn small ${D.main ? 'on' : 'ghost'}" data-act="draftMain" aria-pressed="${!!D.main}">${D.main ? '✓ ' : ''}Main playlist (always available)</button></div>` : ''}
+      ${app.adminPw ? `<div class="row"><button class="btn ghost small" data-act="exportDraft">Export CSV</button><span class="muted small">Downloads the playlist as it is on this screen, to edit in a spreadsheet.</span></div>
+        <div class="row"><label class="btn ghost small" for="replaceCsv">Replace songs from CSV</label><input type="file" id="replaceCsv" accept=".csv,.tsv,.txt,text/csv" class="vh"><span class="muted small">Loads an edited CSV in place of the songs above. Missing years are looked up; nothing is stored until you Save.</span></div>` : ''}
       ${app.adminPw ? `<div class="row"><button class="btn ghost" data-act="recheck">Recheck all years</button><span class="muted small">Looks every song up again with the names as they are now. You approve each change.</span></div>` : ''}
       <div class="row"><button class="btn primary big" data-act="saveDraft">${D.sheetId ? 'Save changes for everyone' : app.adminPw && D.main ? 'Save as main playlist' : SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
     </section>`;
@@ -1200,6 +1219,15 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.acc != null && app.draft){
     const x = app.draft.songs[+e.target.dataset.acc]; x.accept = e.target.checked; saveDraft(); render(); return;
+  }
+  if (e.target.id === 'replaceCsv' && app.draft){
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const D = app.draft, name = ((document.getElementById('dName') || {}).value || D.name).trim();
+    const keep = { sheetId: D.sheetId, listId: D.listId, main: D.main };
+    const rd = new FileReader();
+    rd.onload = () => { app.impMsg = null; startCsv(String(rd.result), name, keep).then(() => { if (app.impMsg){ app.draftMsg = { kind: 'bad', text: app.impMsg }; app.impMsg = null; render(); } }); };
+    rd.readAsText(file);
+    return;
   }
   if (e.target.id === 'csvFile'){
     const input = e.target, file = input.files && input.files[0]; if (!file) return;
