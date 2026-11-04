@@ -78,45 +78,31 @@ button{font:inherit;color:inherit}
 .note.bad{border-left-color:var(--bad)}
 .note.good{border-left-color:var(--good)}
 
-/* Library */
-input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:14px/1.4 inherit;padding:12px;box-sizing:border-box;margin:4px 0 10px}
-textarea{width:100%;min-height:150px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:14px/1.4 ui-monospace,Menlo,monospace;padding:12px;resize:vertical;box-sizing:border-box}
-code.hdr{display:block;background:var(--surface);border-radius:8px;padding:10px 12px;font-size:13px;overflow-x:auto;white-space:nowrap}
-.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
-.plist div{background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;gap:8px}
-.plist span{color:var(--muted);font-variant-numeric:tabular-nums}
+/* Playlists (read-only) */
 ul.problems{margin:0;padding-left:20px;font-size:14px;color:var(--muted);max-height:220px;overflow:auto}
-input[type=file]{font-size:14px;color:var(--muted);max-width:100%}
-.plist button{appearance:none;border:1.5px solid transparent;background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;text-align:left;min-height:48px}
-.plist button:hover{border-color:var(--muted)}
-.plist button .ed{color:var(--accent);font-size:13px;font-weight:700}
-.plist button span.n{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
-/* Playlist editor */
-.efilter{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.efilter input{flex:1 1 220px;min-width:0;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:inherit;padding:10px 12px;min-height:44px}
+input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:15px/1.4 var(--body);padding:12px;box-sizing:border-box;min-height:44px}
+.grp{font-size:13px;color:var(--muted);font-weight:700;margin-top:4px}
+.lrows{display:flex;flex-direction:column;gap:8px}
+.lrow{background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lname{display:flex;flex-direction:column;min-width:0;flex:1 1 160px}
+.lname span{color:var(--muted);font-size:14px}
+.bar{height:10px;border-radius:99px;background:var(--surface);overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent)}
+.linkbtn{appearance:none;border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
+/* Import check screen */
 .erows{display:flex;flex-direction:column;gap:8px}
-.erow{background:var(--surface);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;border-left:4px solid var(--good)}
-.erow.off{border-left-color:var(--line)}
-.erow.off .etitle{opacity:.55}
-.echk{display:flex;gap:12px;align-items:center;cursor:pointer;min-height:32px}
-.echk input{width:24px;height:24px;accent-color:var(--good);flex:none;margin:0}
-.etitle{display:flex;flex-direction:column;min-width:0}
-.etitle b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.etitle span{color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.etag{margin-left:auto;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);flex:none}
-.efields{display:grid;grid-template-columns:90px minmax(0,1fr) 150px auto;gap:8px 10px;align-items:end}
+.erow{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--good)}
+.erow.flag{border-left-color:var(--accent)}
+.erow.off{opacity:.5;border-left-color:var(--line)}
+.enote{color:var(--accent);font-size:14px;font-weight:700}
+.eraw{overflow-wrap:anywhere}
+.efields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 80px 120px;gap:8px 10px}
 .efields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
-.efields input{background:var(--bg-2);border:1.5px solid var(--line);border-radius:8px;color:var(--fg);font:14px/1.3 var(--body);padding:8px 10px;min-height:40px;box-sizing:border-box;width:100%;min-width:0}
+.efields input{background:var(--surface);border:1.5px solid var(--line);border-radius:8px;color:var(--fg);font:14px/1.3 var(--body);padding:8px 10px;min-height:40px;box-sizing:border-box;width:100%;min-width:0}
 .efields input.bad{border-color:var(--bad)}
 .ebtns{display:flex;gap:6px;flex-wrap:wrap}
 .ebtns a.btn{text-decoration:none}
-.emsg{color:var(--bad);font-size:13px}
-.emsg:empty{display:none}
-@media (max-width:699px){
-  .efields{grid-template-columns:1fr 1fr}
-  .efields .elink{grid-column:1 / -1;order:-1}
-  .efields .ebtns{grid-column:1 / -1}
-}
+@media (max-width:699px){ .efields{grid-template-columns:1fr 1fr} }
 
 /* Top bar */
 .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
@@ -225,208 +211,6 @@ const TARGET = 10, START_TOKENS = 2, MAX_TOKENS = 5, SKIP_COST = 1, CHALLENGE_CO
 const COLORS = ['#ff6b6b','#ffc145','#3ddc97','#4cc9f0','#b59cff','#ff7ac6'];
 const COLOR_NAMES = ['Coral','Yellow','Mint','Sky','Violet','Pink'];
 
-const SAMPLE = `artist	title	year	youtube_link	start_sec	playlists
-The Sugarhill Gang	Rapper's Delight	1979	https://youtu.be/mcCK99wHrk0	0	Greatest Hip-Hop
-Kurtis Blow	The Breaks	1980	https://youtu.be/ulBhSNEkMrM	0	Greatest Hip-Hop
-Funky 4 + 1	That's the Joint	1980	https://youtu.be/OKbPzGUihG0	0	Greatest Hip-Hop
-Grandmaster Flash	The Adventures of Grandmaster Flash on the Wheels of Steel	1981	https://youtu.be/F3unhUrwp68	0	Greatest Hip-Hop
-Grandmaster Flash & The Furious Five	The Message	1982	https://youtu.be/PobrSpMwKk4	0	Greatest Hip-Hop
-Afrika Bambaataa & The Soulsonic Force	Planet Rock	1982	https://youtu.be/SqS8X-5aIns	0	Greatest Hip-Hop
-Grandmaster Flash & Melle Mel	White Lines (Don't Don't Do It)	1983	https://youtu.be/DwRXI-y6M9o	0	Greatest Hip-Hop
-Run-DMC	Sucker M.C.'s	1983	https://youtu.be/iOKMWSR2Aio	0	Greatest Hip-Hop
-Whodini	Freaks Come Out at Night	1984	https://youtu.be/FxwrLLlQwBw	0	Greatest Hip-Hop
-UTFO	Roxanne, Roxanne	1984	https://youtu.be/xEjISINkR24	0	Greatest Hip-Hop
-LL Cool J	Rock the Bells	1985	https://youtu.be/5xB727Efeo0	0	Greatest Hip-Hop
-Run-DMC ft. Aerosmith	Walk This Way	1986	https://youtu.be/4B_UYYPb-Gk	0	Greatest Hip-Hop
-Beastie Boys	(You Gotta) Fight for Your Right (To Party!)	1986	https://youtu.be/eBShN8qT4lk	0	Greatest Hip-Hop
-Run-DMC	It's Tricky	1986	https://youtu.be/l-O5IHVhWj0	0	Greatest Hip-Hop
-Run-DMC	My Adidas	1986	https://youtu.be/Qx0huz6TiLo	0	Greatest Hip-Hop
-Boogie Down Productions	South Bronx	1986	https://youtu.be/bcxv8WsT9JA	0	Greatest Hip-Hop
-Beastie Boys	Paul Revere	1986	https://youtu.be/kdfF0cOC50w	0	Greatest Hip-Hop
-Eric B. & Rakim	Paid in Full	1987	https://youtu.be/E7t8eoA_1jQ	0	Greatest Hip-Hop
-Salt-N-Pepa	Push It	1987	https://youtu.be/vCadcBR95oU	0	Greatest Hip-Hop
-Public Enemy	Rebel Without a Pause	1987	https://youtu.be/-fN5RX15Zhw	0	Greatest Hip-Hop
-Eric B. & Rakim	I Know You Got Soul	1987	https://youtu.be/CSxGTh7Ad4E	0	Greatest Hip-Hop
-Big Daddy Kane	Ain't No Half-Steppin'	1988	https://youtu.be/IVCxbzPmOQQ	0	Greatest Hip-Hop
-Rob Base & DJ E-Z Rock	It Takes Two	1988	https://youtu.be/phOW-CZJWT0	0	Greatest Hip-Hop
-N.W.A	Straight Outta Compton	1988	https://youtu.be/TMZi25Pq3T8	0	Greatest Hip-Hop
-Slick Rick	Children's Story	1988	https://youtu.be/HjNTu8jdukA	0	Greatest Hip-Hop
-MC Lyte	Paper Thin	1988	https://youtu.be/1POru2g5mQU	0	Greatest Hip-Hop
-DJ Jazzy Jeff & The Fresh Prince	Parents Just Don't Understand	1988	https://youtu.be/jW3PFC86UNI	0	Greatest Hip-Hop
-Tone Lōc	Wild Thing	1988	https://youtu.be/N_abDVj0qkQ	0	Greatest Hip-Hop
-Public Enemy	Fight the Power	1989	https://youtu.be/mmo3HFa2vjg	0	Greatest Hip-Hop
-De La Soul	Me Myself and I	1989	https://youtu.be/a0ZhDbZIbiM	0	Greatest Hip-Hop
-Young MC	Bust a Move	1989	https://youtu.be/0m3X9MLDRKw	0	Greatest Hip-Hop
-Biz Markie	Just a Friend	1989	https://youtu.be/9aofoBrFNdg	0	Greatest Hip-Hop
-MC Hammer	U Can't Touch This	1990	https://youtu.be/otCpCn0l4Wo	0	Greatest Hip-Hop
-LL Cool J	Mama Said Knock You Out	1990	https://youtu.be/vimZj8HW0Kg	0	Greatest Hip-Hop
-Digital Underground	The Humpty Dance	1990	https://youtu.be/PBsjggc5jHM	0	Greatest Hip-Hop
-A Tribe Called Quest	Can I Kick It?	1990	https://youtu.be/O3pyCGnZzYA	0	Greatest Hip-Hop
-A Tribe Called Quest	Scenario	1991	https://youtu.be/Q6TLWqn82J4	0	Greatest Hip-Hop
-Naughty by Nature	O.P.P.	1991	https://youtu.be/7f7FuDagYLU	0	Greatest Hip-Hop
-Black Sheep	The Choice Is Yours	1991	https://youtu.be/K9F5xcpjDMU	0	Greatest Hip-Hop
-Cypress Hill	How I Could Just Kill a Man	1991	https://youtu.be/Yg-RIOATCbU	0	Greatest Hip-Hop
-Geto Boys	Mind Playing Tricks on Me	1991	https://youtu.be/IJtHdkyo0hc	0	Greatest Hip-Hop
-House of Pain	Jump Around	1992	https://youtu.be/XhzpxjuwZy0	0	Greatest Hip-Hop
-Sir Mix-a-Lot	Baby Got Back	1992	https://youtu.be/X53ZSxkQ3Ho	0	Greatest Hip-Hop
-Ice Cube	It Was a Good Day	1992	https://youtu.be/h4UqMyldS7Q	0	Greatest Hip-Hop
-Dr. Dre ft. Snoop Doggy Dogg	Nuthin' but a 'G' Thang	1992	https://youtu.be/5-q5GDT1nxU	0	Greatest Hip-Hop
-Pete Rock & CL Smooth	They Reminisce Over You (T.R.O.Y.)	1992	https://youtu.be/k6mdRv0ZdR8	0	Greatest Hip-Hop
-The Pharcyde	Passin' Me By	1992	https://youtu.be/a-mAK3uB2_0	0	Greatest Hip-Hop
-Arrested Development	Tennessee	1992	https://youtu.be/6VCdJyOAQYM	0	Greatest Hip-Hop
-Kris Kross	Jump	1992	https://youtu.be/010KyIQjkTk	0	Greatest Hip-Hop
-Wu-Tang Clan	C.R.E.A.M.	1993	https://youtu.be/PBwAxmrE194	0	Greatest Hip-Hop
-Snoop Doggy Dogg	Gin and Juice	1993	https://youtu.be/fWCZse1iwE0	0	Greatest Hip-Hop
-Cypress Hill	Insane in the Brain	1993	https://youtu.be/RijB8wnJCN0	0	Greatest Hip-Hop
-Souls of Mischief	93 'til Infinity	1993	https://youtu.be/fXJc2NYwHjw	0	Greatest Hip-Hop
-A Tribe Called Quest	Electric Relaxation	1993	https://youtu.be/WHRnvjCkTsw	0	Greatest Hip-Hop
-Snoop Doggy Dogg	Who Am I? (What's My Name?)	1993	https://youtu.be/2soGJXQAQec	0	Greatest Hip-Hop
-2Pac	I Get Around	1993	https://youtu.be/9_bQHQxKFQY	0	Greatest Hip-Hop
-The Notorious B.I.G.	Juicy	1994	https://youtu.be/_JZom_gVfuw	0	Greatest Hip-Hop
-Nas	N.Y. State of Mind	1994	https://youtu.be/hI8A14Qcv68	0	Greatest Hip-Hop
-Warren G ft. Nate Dogg	Regulate	1994	https://youtu.be/1plPyJdXKIY	0	Greatest Hip-Hop
-Gang Starr	Mass Appeal	1994	https://youtu.be/y9lNbNGbo24	0	Greatest Hip-Hop
-Nas	The World Is Yours	1994	https://youtu.be/e5PnuIRnJW8	0	Greatest Hip-Hop
-2Pac	Dear Mama	1995	https://youtu.be/Mb1ZvUDvLDY	0	Greatest Hip-Hop
-Mobb Deep	Shook Ones, Pt. II	1995	https://youtu.be/yoYZf-lBF_U	0	Greatest Hip-Hop
-Coolio ft. L.V.	Gangsta's Paradise	1995	https://youtu.be/SQCSxqScSVQ	0	Greatest Hip-Hop
-2Pac ft. Dr. Dre	California Love	1995	https://youtu.be/omfz62qu_Bc	0	Greatest Hip-Hop
-Method Man ft. Mary J. Blige	I'll Be There for You / You're All I Need to Get By	1995	https://youtu.be/0wD8rVuOOG0	0	Greatest Hip-Hop
-Ol' Dirty Bastard	Shimmy Shimmy Ya	1995	https://youtu.be/h2zgB93KANE	0	Greatest Hip-Hop
-Raekwon	Ice Cream	1995	https://youtu.be/jgh10of6DKA	0	Greatest Hip-Hop
-Luniz	I Got 5 on It	1995	https://youtu.be/GEzTT0qvOcM	0	Greatest Hip-Hop
-Bone Thugs-N-Harmony	Tha Crossroads	1996	https://youtu.be/y7_eA6NZ9VQ	0	Greatest Hip-Hop
-Fugees	Killing Me Softly With His Song	1996	https://youtu.be/oKOtzIo-uYw	0	Greatest Hip-Hop
-Nas ft. Lauryn Hill	If I Ruled the World (Imagine That)	1996	https://youtu.be/5MfeTYdZM8c	0	Greatest Hip-Hop
-Busta Rhymes	Woo Hah!! Got You All in Check	1996	https://youtu.be/EQzvQO2LcA4	0	Greatest Hip-Hop
-OutKast	Elevators (Me & You)	1996	https://youtu.be/uqB_UVlhlPA	0	Greatest Hip-Hop
-The Notorious B.I.G.	Hypnotize	1997	https://youtu.be/glEiPXAYE-U	0	Greatest Hip-Hop
-Missy Elliott	The Rain (Supa Dupa Fly)	1997	https://youtu.be/hHcyJPTTn9w	0	Greatest Hip-Hop
-Puff Daddy ft. Faith Evans & 112	I'll Be Missing You	1997	https://youtu.be/NKMtZm2YuBE	0	Greatest Hip-Hop
-The Notorious B.I.G. ft. Puff Daddy & Mase	Mo Money Mo Problems	1997	https://youtu.be/gUhRKVIjJtw	0	Greatest Hip-Hop
-Will Smith	Men in Black	1997	https://youtu.be/fiBLgEx6svA	0	Greatest Hip-Hop
-Lauryn Hill	Doo Wop (That Thing)	1998	https://youtu.be/T6QKqFPRZSA	0	Greatest Hip-Hop
-Jay-Z	Hard Knock Life (Ghetto Anthem)	1998	https://youtu.be/lpZgKI97K1M	0	Greatest Hip-Hop
-OutKast	Rosa Parks	1998	https://youtu.be/drsQLEU0N1Y	0	Greatest Hip-Hop
-DMX	Ruff Ryders' Anthem	1998	https://youtu.be/T-LkswYvhwM	0	Greatest Hip-Hop
-Busta Rhymes	Gimme Some More	1998	https://youtu.be/un3NkWnHl9Q	0	Greatest Hip-Hop
-Big Pun ft. Joe	Still Not a Player	1998	https://youtu.be/7Xue-dOOLiY	0	Greatest Hip-Hop
-2Pac ft. Talent	Changes	1998	https://youtu.be/eXvBjCO19QY	0	Greatest Hip-Hop
-Juvenile ft. Mannie Fresh & Lil Wayne	Back That Azz Up	1998	https://youtu.be/WpQrAbkM3dI	0	Greatest Hip-Hop
-Eminem	My Name Is	1999	https://youtu.be/sNPnbI1arSE	0	Greatest Hip-Hop
-Dr. Dre ft. Snoop Dogg	Still D.R.E.	1999	https://youtu.be/_CL6n0FJZpk	0	Greatest Hip-Hop
-Jay-Z ft. UGK	Big Pimpin'	1999	https://youtu.be/Cgoqrgc_0cM	0	Greatest Hip-Hop
-Dr. Dre ft. Eminem	Forgot About Dre	1999	https://youtu.be/QFcv5Ma8u8k	0	Greatest Hip-Hop
-OutKast	Ms. Jackson	2000	https://youtu.be/MYxAiK6VnXw	0	Greatest Hip-Hop
-Eminem ft. Dido	Stan	2000	https://youtu.be/gOMhN-hfMtY	0	Greatest Hip-Hop
-Eminem	The Real Slim Shady	2000	https://youtu.be/eJO5HU_7_1w	0	Greatest Hip-Hop
-OutKast	B.O.B. (Bombs Over Baghdad)	2000	https://youtu.be/lVehcuJXe6I	0	Greatest Hip-Hop
-Common	The Light	2000	https://youtu.be/OjHX7jf-znA	0	Greatest Hip-Hop
-Nelly	Country Grammar (Hot...)	2000	https://youtu.be/Y5qKNlcUwKs	0	Greatest Hip-Hop
-Missy Elliott	Get Ur Freak On	2001	https://youtu.be/FPoKiGQzbSQ	0	Greatest Hip-Hop
-Jay-Z	Izzo (H.O.V.A.)	2001	https://youtu.be/GRKmpn3SBdw	0	Greatest Hip-Hop
-Eminem	Lose Yourself	2002	https://youtu.be/_Yhyp-_hX2s	0	Greatest Hip-Hop
-Nelly	Hot in Herre	2002	https://youtu.be/GeZZr_p6vB8	0	Greatest Hip-Hop
-Eminem	Without Me	2002	https://youtu.be/YVkUvmDQ3HY	0	Greatest Hip-Hop
-Eminem ft. Nate Dogg	'Till I Collapse	2002	https://youtu.be/Obim8BYGnOE	0	Greatest Hip-Hop
-Missy Elliott	Work It	2002	https://youtu.be/cjIvu7e6Wq8	0	Greatest Hip-Hop
-Clipse	Grindin'	2002	https://youtu.be/TjWAWcx4xdE	0	Greatest Hip-Hop
-50 Cent	In da Club	2003	https://youtu.be/5qm8PH4xAss	0	Greatest Hip-Hop
-Jay-Z	99 Problems	2003	https://youtu.be/6uikJTnmtgw	0	Greatest Hip-Hop
-OutKast	Hey Ya!	2003	https://youtu.be/PWgvGjAhvIw	0	Greatest Hip-Hop
-Jay-Z	Dirt Off Your Shoulder	2003	https://youtu.be/Oz_-VaTHpc8	0	Greatest Hip-Hop
-Ludacris ft. Shawnna	Stand Up	2003	https://youtu.be/pZG7IK99OvI	0	Greatest Hip-Hop
-50 Cent ft. Snoop Dogg & G-Unit	P.I.M.P.	2003	https://youtu.be/xVcMBiltNZI	0	Greatest Hip-Hop
-50 Cent ft. Nate Dogg	21 Questions	2003	https://youtu.be/cDMhlvbOFaM	0	Greatest Hip-Hop
-Kanye West	Through the Wire	2003	https://youtu.be/AE8y25CcE6s	0	Greatest Hip-Hop
-T.I.	Rubber Band Man	2003	https://youtu.be/xjDT3rMSQLQ	0	Greatest Hip-Hop
-Kanye West	Jesus Walks	2004	https://youtu.be/MYF7H_fpc-g	0	Greatest Hip-Hop
-Snoop Dogg ft. Pharrell	Drop It Like It's Hot	2004	https://youtu.be/GtUVQei3nX4	0	Greatest Hip-Hop
-Lil Wayne	Go DJ	2004	https://youtu.be/MNS-Ho5tWo0	0	Greatest Hip-Hop
-Jadakiss ft. Anthony Hamilton	Why	2004	https://youtu.be/0-cpL--0AQA	0	Greatest Hip-Hop
-Terror Squad	Lean Back	2004	https://youtu.be/ajmI1P3r1w4	0	Greatest Hip-Hop
-Kanye West ft. Jamie Foxx	Gold Digger	2005	https://youtu.be/6vwNcNOTVzY	0	Greatest Hip-Hop
-50 Cent ft. Olivia	Candy Shop	2005	https://youtu.be/SRcnnId15BA	0	Greatest Hip-Hop
-The Game ft. 50 Cent	Hate It or Love It	2005	https://youtu.be/BuMBmK5uksg	0	Greatest Hip-Hop
-Kanye West ft. Lupe Fiasco	Touch the Sky	2005	https://youtu.be/B95OUKk7alM	0	Greatest Hip-Hop
-Missy Elliott ft. Ciara & Fat Man Scoop	Lose Control	2005	https://youtu.be/na7lIb09898	0	Greatest Hip-Hop
-Chamillionaire ft. Krayzie Bone	Ridin'	2005	https://youtu.be/CtwJvgPJ9xw	0	Greatest Hip-Hop
-Young Jeezy ft. Akon	Soul Survivor	2005	https://youtu.be/DtC3Vtq-1ns	0	Greatest Hip-Hop
-T.I.	What You Know	2006	https://youtu.be/i73Mx0Z5Qek	0	Greatest Hip-Hop
-Lupe Fiasco	Kick, Push	2006	https://youtu.be/Gl83mI69nX4	0	Greatest Hip-Hop
-Fat Joe ft. Lil Wayne	Make It Rain	2006	https://youtu.be/6OP8SNdyWJA	0	Greatest Hip-Hop
-Kanye West	Stronger	2007	https://youtu.be/PsO6ZnUZI0g	0	Greatest Hip-Hop
-Kanye West ft. Dwele	Flashing Lights	2007	https://youtu.be/ila-hAUXR5U	0	Greatest Hip-Hop
-Soulja Boy Tell 'Em	Crank That (Soulja Boy)	2007	https://youtu.be/8UFIYGkROII	0	Greatest Hip-Hop
-Flo Rida ft. T-Pain	Low	2007	https://youtu.be/U2waT9TxPU0	0	Greatest Hip-Hop
-Lil Wayne ft. Static Major	Lollipop	2008	https://youtu.be/2IH8tNQAzSs	0	Greatest Hip-Hop
-Kanye West	Heartless	2008	https://youtu.be/Co0tTeuUVhU	0	Greatest Hip-Hop
-Lil Wayne	A Milli	2008	https://youtu.be/1Vf4mMCpNY0	0	Greatest Hip-Hop
-T.I.	Whatever You Like	2008	https://youtu.be/nQJACVmankY	0	Greatest Hip-Hop
-T.I. ft. Rihanna	Live Your Life	2008	https://youtu.be/koVHN6eO4Xg	0	Greatest Hip-Hop
-Kid Cudi	Day 'n' Nite	2008	https://youtu.be/VrDfSZ_6f4U	0	Greatest Hip-Hop
-Jay-Z ft. Alicia Keys	Empire State of Mind	2009	https://youtu.be/vk6014HuxcE	0	Greatest Hip-Hop
-Drake	Best I Ever Had	2009	https://youtu.be/mgs4y8gGOZo	0	Greatest Hip-Hop
-Jay-Z ft. Rihanna & Kanye West	Run This Town	2009	https://youtu.be/ztygmWtWCjQ	0	Greatest Hip-Hop
-Kanye West ft. Pusha T	Runaway	2010	https://youtu.be/Bm5iA4Zupek	0	Greatest Hip-Hop
-Eminem ft. Rihanna	Love the Way You Lie	2010	https://youtu.be/uelHwf8o7_U	0	Greatest Hip-Hop
-Eminem	Not Afraid	2010	https://youtu.be/j5-yKhDd64s	0	Greatest Hip-Hop
-Kanye West	Power	2010	https://youtu.be/L53gjP-TtGE	0	Greatest Hip-Hop
-Kanye West	All of the Lights	2010	https://youtu.be/DTq4XEliPag	0	Greatest Hip-Hop
-Wiz Khalifa	Black and Yellow	2010	https://youtu.be/UePtoxDhJSw	0	Greatest Hip-Hop
-Jay-Z & Kanye West	Otis	2011	https://youtu.be/BoEKWtgJQAU	0	Greatest Hip-Hop
-Kendrick Lamar	Swimming Pools (Drank)	2012	https://youtu.be/B5YNiCfWC3A	0	Greatest Hip-Hop
-Macklemore & Ryan Lewis ft. Wanz	Thrift Shop	2012	https://youtu.be/QK8mJJJvaes	0	Greatest Hip-Hop
-Kanye West ft. Big Sean, Pusha T & 2 Chainz	Mercy	2012	https://youtu.be/7Dqgr0wNyPo	0	Greatest Hip-Hop
-Kendrick Lamar ft. Jay Rock	Money Trees	2012	https://youtu.be/Iy-dJwHVX84	0	Greatest Hip-Hop
-Drake	Started from the Bottom	2013	https://youtu.be/RubBzkZzpUA	0	Greatest Hip-Hop
-Kanye West	Bound 2	2013	https://youtu.be/BBAtAM7vtgc	0	Greatest Hip-Hop
-Eminem	Rap God	2013	https://youtu.be/XbGs_qK2PQA	0	Greatest Hip-Hop
-Migos	Versace	2013	https://youtu.be/rF-hq_CHNH0	0	Greatest Hip-Hop
-Iggy Azalea ft. Charli XCX	Fancy	2014	https://youtu.be/O-zpOMYRi0w	0	Greatest Hip-Hop
-Nicki Minaj	Anaconda	2014	https://youtu.be/OK5-fE6gAT4	0	Greatest Hip-Hop
-J. Cole	No Role Modelz	2014	https://youtu.be/8HBcV0MtAQg	0	Greatest Hip-Hop
-Kendrick Lamar	Alright	2015	https://youtu.be/JocAXINz-YE	0	Greatest Hip-Hop
-Drake	Hotline Bling	2015	https://youtu.be/uxpDa-c-4Mc	0	Greatest Hip-Hop
-Kendrick Lamar	King Kunta	2015	https://youtu.be/hRK7PVJFbS8	0	Greatest Hip-Hop
-Wiz Khalifa ft. Charlie Puth	See You Again	2015	https://youtu.be/RgKAFK5djSk	0	Greatest Hip-Hop
-Travis Scott	Antidote	2015	https://youtu.be/KnZ8h3MRuYg	0	Greatest Hip-Hop
-Drake ft. WizKid & Kyla	One Dance	2016	https://youtu.be/FOqKN-ouAUE	0	Greatest Hip-Hop
-Rae Sremmurd ft. Gucci Mane	Black Beatles	2016	https://youtu.be/b8m9zhNAgKs	0	Greatest Hip-Hop
-Migos ft. Lil Uzi Vert	Bad and Boujee	2016	https://youtu.be/S-sJp1FfG7Q	0	Greatest Hip-Hop
-Travis Scott ft. Kendrick Lamar	goosebumps	2016	https://youtu.be/Dst9gZkq1a8	0	Greatest Hip-Hop
-Chance the Rapper ft. Lil Wayne & 2 Chainz	No Problem	2016	https://youtu.be/DbIwOKe3QfQ	0	Greatest Hip-Hop
-Post Malone ft. Quavo	Congratulations	2016	https://youtu.be/SC4xMk98Pdc	0	Greatest Hip-Hop
-Kendrick Lamar	HUMBLE.	2017	https://youtu.be/ov4WobPqoSA	0	Greatest Hip-Hop
-Future	Mask Off	2017	https://youtu.be/xvZqHgFz51I	0	Greatest Hip-Hop
-Kendrick Lamar	DNA.	2017	https://youtu.be/Fb3j_yuFh1s	0	Greatest Hip-Hop
-Cardi B	Bodak Yellow	2017	https://youtu.be/PEGccV-NOm8	0	Greatest Hip-Hop
-Post Malone ft. 21 Savage	rockstar	2017	https://youtu.be/UceaB4D0jpo	0	Greatest Hip-Hop
-Lil Uzi Vert	XO Tour Llif3	2017	https://youtu.be/WrsFXgQk5UI	0	Greatest Hip-Hop
-Logic ft. Alessia Cara & Khalid	1-800-273-8255	2017	https://youtu.be/imhCPu-78VE	0	Greatest Hip-Hop
-Childish Gambino	This Is America	2018	https://youtu.be/VYOjWnS4cMY	0	Greatest Hip-Hop
-Travis Scott ft. Drake	Sicko Mode	2018	https://youtu.be/6ONRf7h3Mdk	0	Greatest Hip-Hop
-Drake	God's Plan	2018	https://youtu.be/xpVfcZ0ZcFM	0	Greatest Hip-Hop
-Drake	Nice for What	2018	https://youtu.be/U9BwWKXjVaI	0	Greatest Hip-Hop
-Cardi B, Bad Bunny & J Balvin	I Like It	2018	https://youtu.be/xTlNMmZKwpA	0	Greatest Hip-Hop
-Juice WRLD	Lucid Dreams	2018	https://youtu.be/hHtv2XMZlKs	0	Greatest Hip-Hop
-Lil Nas X	Old Town Road	2018	https://youtu.be/HIeIjFqKHSE	0	Greatest Hip-Hop
-21 Savage ft. J. Cole	a lot	2018	https://youtu.be/DmWWqogr_r8	0	Greatest Hip-Hop
-Roddy Ricch	The Box	2019	https://youtu.be/UNZqm3dxd2w	0	Greatest Hip-Hop
-J. Cole	Middle Child	2019	https://youtu.be/e8CLsYzE5wk	0	Greatest Hip-Hop
-Tyler, the Creator	EARFQUAKE	2019	https://youtu.be/Oo3wu3wx1i8	0	Greatest Hip-Hop
-Pop Smoke	Dior	2019	https://youtu.be/oorVWW9ywG0	0	Greatest Hip-Hop
-DaBaby ft. Roddy Ricch	ROCKSTAR	2020	https://youtu.be/mxFstYSbBmc	0	Greatest Hip-Hop
-Cardi B ft. Megan Thee Stallion	WAP	2020	https://youtu.be/hsm4poTWjMs	0	Greatest Hip-Hop
-Lil Nas X & Jack Harlow	Industry Baby	2021	https://youtu.be/UTHLKHL_whs	0	Greatest Hip-Hop
-Polo G	RAPSTAR	2021	https://youtu.be/w2IhccXakkE	0	Greatest Hip-Hop
-Jack Harlow	First Class	2022	https://youtu.be/yQBImEeXNZ4	0	Greatest Hip-Hop
-Metro Boomin, The Weeknd & 21 Savage	Creepin'	2022	https://youtu.be/VYsr8v1jMHI	0	Greatest Hip-Hop
-Doja Cat	Paint the Town Red	2023	https://youtu.be/m4_9TFeMfJE	0	Greatest Hip-Hop
-Travis Scott ft. Playboi Carti	FE!N	2023	https://youtu.be/B9synWjqBn8	0	Greatest Hip-Hop
-Kendrick Lamar	Not Like Us	2024	https://youtu.be/H58vbez_m4E	0	Greatest Hip-Hop
-Future, Metro Boomin & Kendrick Lamar	Like That	2024	https://youtu.be/N9bKBAA22Go	0	Greatest Hip-Hop`;
-
 /* ---------- storage (always guarded) ---------- */
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
@@ -464,6 +248,12 @@ const HEAD = {
   link:['youtube_link','link','youtube','url','youtube_url'], start:['start_sec','start','start_second','start_seconds'],
   playlists:['playlists','playlist']
 };
+function parseStart(v){
+  v = String(v).trim(); if (!v) return 0;
+  let m = v.match(/^(\d+)$/); if (m) return +m[1];
+  m = v.match(/^(\d+):([0-5]\d)$/); if (m) return +m[1] * 60 + +m[2];
+  return null;
+}
 const norm = s => String(s||'').trim().toLowerCase().replace(/[\s_-]+/g,'_');
 function importText(text){
   const rows = parseTable(text).map((r, i) => (r.rowNo = i + 1, r)).filter(r => r.some(c => String(c).trim() !== ''));
@@ -484,124 +274,249 @@ function importText(text){
     if (!id){ problems.push({ row: rowNo, msg: label + ': not a YouTube link' }); continue; }
     if (seen[id]){ problems.push({ row: rowNo, msg: label + ': same video as row ' + seen[id] }); continue; }
     seen[id] = rowNo;
-    const st = parseInt(g('start'), 10);
+    const st = parseStart(g('start')) || 0;
     const pls = g('playlists').split(',').map(s => s.trim()).filter(Boolean);
     songs.push({ id, artist, title, year: +yr, start: st > 0 ? st : 0, playlists: [...new Set(pls)] });
   }
   return { songs, problems };
 }
 
-/* ---------- library ---------- */
-let lib = store.get('nd_lib', null);
-if (!lib || !Array.isArray(lib.songs)) lib = { songs: importText(SAMPLE).songs, source: 'sample' };
-let history = new Set(store.get('nd_history', []));
+/* ---------- library ----------
+   Two kinds of playlists, both read into the same shape { key, name, songs, mine }:
+   - Admin playlists: CSV files in the repo's playlists/ folder, listed in playlists/index.json. Only the
+     repo owner can change them (GitHub write access is the lock). Cached in nd_admin for offline starts.
+   - Player playlists: imported from a YouTube playlist on a device and saved in nd_mylists, then added to
+     the shared list (below) so every device sees them. A local copy keeps working if sharing fails. */
+const YT_API_KEY = 'AIzaSyAxh7ElyazVLt_zKpOyPuAcFje3btG8P98';           // YouTube Data API v3 key, restricted to the site's address in Google Cloud.
+const ADMIN_DIR = 'playlists/';
+let admin = store.get('nd_admin', null) || { lists: [], problems: [], at: 0 };
+let myLists = store.get('nd_mylists', []);
 let failed = store.get('nd_failed', []);
-const saveLib = () => { store.set('nd_lib', lib); applyEdits(); };
-const saveHistory = () => store.set('nd_history', [...history]);
-function markPlayed(id){ if (!history.has(id)){ history.add(id); saveHistory(); } }
+const saveMine = () => store.set('nd_mylists', myLists);
 
-/* ---------- in-app edits ----------
-   Edits are local overrides on top of the imported library (nd_edits), keyed by artist|title so they
-   survive the silent Sheet reload on every app open and a fixed link in the Sheet. Fields: year, id
-   (YouTube video), start (seconds), pl {playlist: true|false} for checked/unchecked. `songs` is the
-   effective library every read uses; lib.songs stays exactly what was imported. */
-let edits = store.get('nd_edits', {});
-const saveEdits = () => store.set('nd_edits', edits);
-const songKey = s => (String(s.artist) + '|' + String(s.title)).toLowerCase().replace(/\s+/g, ' ').trim();
-let songs = [], baseByKey = new Map();
-function applyEdits(){
-  baseByKey = new Map();
-  songs = lib.songs.map(b => {
-    const k = songKey(b), e = edits[k];
-    if (!baseByKey.has(k)) baseByKey.set(k, b);
-    const s = { ...b, key: k, playlists: b.playlists.slice() };
-    if (e){
-      if (e.year) s.year = e.year;
-      if (e.id) s.id = e.id;
-      if (e.start != null) s.start = e.start;
-      if (e.pl) for (const p in e.pl){
-        if (e.pl[p]){ if (!s.playlists.includes(p)) s.playlists.push(p); }
-        else s.playlists = s.playlists.filter(x => x !== p);
-      }
-    }
-    return s;
-  });
+/* Main playlists = the main rows of the playlist store (Sheet). The repo files in playlists/ are only a
+   fallback for when the store is switched off or has never loaded; in admin mode they can be copied in. */
+const storeOn = () => !!SHARED_URL && !!shared.at;
+function allLists(){
+  const sharedIds = new Set(shared.lists.map(l => l.id));
+  const sheetMain = shared.lists.filter(l => l.main), mainNames = new Set(sheetMain.map(l => l.name));
+  return [...sheetMain.map(l => ({ key: 's:' + l.id, name: l.name, songs: l.songs, kind: 'admin', list: l })),
+          ...(storeOn() ? [] : admin.lists).filter(l => !mainNames.has(l.name)).map(l => ({ key: 'a:' + l.name, name: l.name, songs: l.songs, kind: 'admin', file: true })),
+          ...shared.lists.filter(l => !l.main).map(l => ({ key: 's:' + l.id, name: l.name, songs: l.songs, kind: 'shared', list: l })),
+          ...myLists.filter(l => !(l.sharedId && sharedIds.has(l.sharedId))).map(l => ({ key: 'm:' + l.id, name: l.name, songs: l.songs, kind: 'mine', list: l }))];
 }
-/* A song unticked from every playlist it was in is left out of "All songs" too. */
-const playable = s => s.playlists.length > 0 || !(edits[s.key] && edits[s.key].pl);
-const editedCount = () => songs.filter(s => edits[s.key]).length;
-function parseStart(v){
-  v = String(v).trim(); if (!v) return 0;
-  let m = v.match(/^(\d+)$/); if (m) return +m[1];
-  m = v.match(/^(\d+):([0-5]\d)$/); if (m) return +m[1] * 60 + +m[2];
-  return null;
-}
-/* Returns { error } or { value } (the normalised value to show in the field). */
-function setEdit(k, field, v, pl){
-  const b = baseByKey.get(k), cur = songs.find(s => s.key === k);
-  if (!b || !cur) return { error: 'Song not found.' };
-  const e = Object.assign({}, edits[k]);
-  let value = v;
-  if (field === 'year'){
-    v = String(v).trim();
-    if (!/^\d{4}$/.test(v) || +v < 1900 || +v > 2100) return { error: 'Year must be 4 digits, like 1984.' };
-    if (+v === b.year) delete e.year; else e.year = +v;
-  } else if (field === 'link'){
-    const id = ytId(v);
-    if (!id) return { error: 'That is not a YouTube link.' };
-    const clash = songs.find(s => s.id === id && s.key !== k);
-    if (clash) return { error: 'That video is already used by ' + clash.artist + ' — ' + clash.title + '.' };
-    if (id !== cur.id && history.has(cur.id)){ history.add(id); saveHistory(); }
-    if (id === b.id) delete e.id; else e.id = id;
-    value = 'https://youtu.be/' + id;
-  } else if (field === 'start'){
-    const st = parseStart(v);
-    if (st == null) return { error: 'Start must be seconds (like 45) or minutes:seconds (like 1:30).' };
-    if (st === b.start) delete e.start; else e.start = st;
-    value = st;
-  } else if (field === 'on'){
-    const pls = Object.assign({}, e.pl);
-    if (!!v === b.playlists.includes(pl)) delete pls[pl]; else pls[pl] = !!v;
-    if (Object.keys(pls).length) e.pl = pls; else delete e.pl;
-  }
-  if (Object.keys(e).length) edits[k] = e; else delete edits[k];
-  saveEdits(); applyEdits();
-  return { value };
-}
-const csvCell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
-function libraryRows(delim){
-  const cell = delim === '\t' ? (v => String(v).replace(/[\t\n\r]+/g, ' ')) : csvCell;
-  return [['artist','title','year','youtube_link','start_sec','playlists'], ...songs.map(s => [s.artist, s.title, s.year, 'https://youtu.be/' + s.id, s.start || 0, s.playlists.join(', ')])]
-    .map(r => r.map(cell).join(delim)).join('\n');
-}
-applyEdits();
-
-function playlistCounts(){
-  const m = new Map();
-  songs.forEach(s => s.playlists.forEach(p => m.set(p, (m.get(p) || 0) + 1)));
-  return [...m.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
-}
-/* Every playlist name, including ones where every song is unticked, so they can still be edited. */
-function allPlaylists(){
-  const m = new Map(playlistCounts());
-  lib.songs.forEach(s => s.playlists.forEach(p => { if (!m.has(p)) m.set(p, 0); }));
-  Object.values(edits).forEach(e => e.pl && Object.keys(e.pl).forEach(p => { if (!m.has(p)) m.set(p, 0); }));
-  return [...m.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
-}
+/* Union of the selected playlists, one entry per YouTube video (admin data wins on a clash). Every song in
+   the pool then has the same chance; newGame shuffles it once, so nothing repeats within a game. */
 function selectionSongs(sel){
-  if (!sel.length || sel.includes('__all')) return songs.filter(playable);
-  return songs.filter(s => s.playlists.some(p => sel.includes(p)));
+  const seen = new Map();
+  allLists().filter(l => sel.includes(l.key)).forEach(l => l.songs.forEach(s => { if (!seen.has(s.id)) seen.set(s.id, s); }));
+  return [...seen.values()];
+}
+/* Keep the selection to playlists that exist; old saves used names or '__all'. Empty → all admin playlists. */
+function fixSel(){
+  const keys = new Set(allLists().map(l => l.key));
+  const byName = new Map(allLists().filter(l => l.kind === 'admin').map(l => [l.name, l.key]));
+  let sel = (app.setup.sel || []).flatMap(x => x === '__all' ? [...byName.values()] : keys.has(x) ? [x] : x.startsWith('a:') && byName.has(x.slice(2)) ? [byName.get(x.slice(2))] : byName.has(x) ? [byName.get(x)] : []);
+  sel = [...new Set(sel)];
+  // Until someone picks, the default follows what has loaded: every main playlist, else the first one there is.
+  if (!sel.length || app.setup.selAuto){
+    sel = allLists().filter(l => l.kind === 'admin').map(l => l.key);
+    if (!sel.length && allLists()[0]) sel = [allLists()[0].key];
+    app.setup.selAuto = true;
+  }
+  app.setup.sel = sel;
+}
+
+async function loadAdmin(){
+  let index;
+  try{
+    const r = await fetch(ADMIN_DIR + 'index.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    index = await r.json();
+  }catch(e){ admin.error = !admin.lists.length; if (app.screen !== 'game') render(); return; }
+  const byName = new Map(), problems = [];
+  for (const entry of (index.playlists || [])){
+    let text;
+    try{ const r = await fetch(ADMIN_DIR + entry.file, { cache: 'no-store' }); if (!r.ok) throw new Error(); text = await r.text(); }
+    catch(e){ problems.push({ file: entry.file, row: '-', msg: 'file could not be read' }); continue; }
+    const res = importText(text);
+    if (res.error){ problems.push({ file: entry.file, row: 1, msg: res.error }); continue; }
+    res.problems.forEach(p => problems.push(Object.assign({ file: entry.file }, p)));
+    res.songs.forEach(s => (s.playlists.length ? s.playlists : [entry.name]).forEach(name => {
+      if (!byName.has(name)) byName.set(name, new Map());
+      const m = byName.get(name); if (!m.has(s.id)) m.set(s.id, { id: s.id, artist: s.artist, title: s.title, year: s.year, start: s.start });
+    }));
+  }
+  if (!byName.size){ admin.error = !admin.lists.length; admin.problems = problems; if (app.screen !== 'game') render(); return; }
+  admin = { lists: [...byName.entries()].map(([name, m]) => ({ name, songs: [...m.values()] })), problems, at: Date.now() };
+  store.set('nd_admin', admin);
+  fixSel();
+  if (app.screen !== 'game') render(); else save();
+}
+
+/* ---------- YouTube playlist import ---------- */
+function ytPlaylistId(u){
+  u = String(u || '').trim();
+  const m = u.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  if (m) return m[1];
+  return /^(PL|OL|UU|FL|RD)[A-Za-z0-9_-]{10,}$/.test(u) ? u : null;
+}
+const JUNK = /\s*[\(\[][^\)\]]*\b(official|video|audio|lyrics?|visuali[sz]er|hd|hq|4k|remaster(ed)?|explicit|clean|mv|m\/v|music video|videoclip|clip officiel)\b[^\)\]]*[\)\]]/gi;
+/* "Artist - Title (Official Video)" → { artist, title, sure } */
+function splitTitle(raw, channel){
+  let t = String(raw).replace(JUNK, '').replace(/\s*\|.*$/, '').replace(/\s+/g, ' ').trim();
+  const m = t.match(/^(.+?)\s+[-–—~]\s+(.+)$/);
+  const unq = x => x.replace(/^["“'‘]+|["”'’]+$/g, '').trim();
+  if (m) return { artist: unq(m[1]), title: unq(m[2]), sure: true };
+  const ch = String(channel || '').replace(/\s*-\s*Topic$/i, '').replace(/VEVO$/i, '').trim();
+  return { artist: ch, title: unq(t), sure: false };
+}
+async function ytFetchPlaylist(pid, onPage){
+  const out = [], seen = new Set(); let token = '';
+  for (let page = 0; page < 20; page++){
+    const u = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=' + encodeURIComponent(pid) + '&key=' + encodeURIComponent(YT_API_KEY) + (token ? '&pageToken=' + token : '');
+    const r = await fetch(u);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok){ const reason = j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason; throw new Error(reason === 'playlistNotFound' ? 'notfound' : 'api'); }
+    (j.items || []).forEach(it => {
+      const sn = it.snippet || {}, id = (sn.resourceId || {}).videoId;
+      if (!id || seen.has(id) || /^(Deleted|Private) video$/i.test(sn.title || '')) return;
+      seen.add(id);
+      const pub = (it.contentDetails || {}).videoPublishedAt;
+      out.push({ id, raw: sn.title || '', channel: sn.videoOwnerChannelTitle || '', upYear: pub ? +pub.slice(0, 4) : null });
+    });
+    if (onPage) onPage(out.length);
+    if (!j.nextPageToken) break; token = j.nextPageToken;
+  }
+  return out;
+}
+const lq = s => '"' + String(s).replace(/["\\]/g, ' ').trim() + '"';
+const mainArtist = a => String(a).split(/\s+(?:ft\.?|feat\.?|featuring|with|x|&|and|vs\.?)\s+|,\s*/i)[0].trim();
+const bareTitle = t => String(t).replace(/\s*[\(\[](?:ft\.?|feat\.?|featuring|with)\b[^\)\]]*[\)\]]/gi, '').replace(/\s+(?:ft\.?|feat\.?)\s+.*$/i, '').trim();
+/* Earliest release year in MusicBrainz for a confident match. Returns { year, note } (note = why to check). */
+async function lookupYear(s){
+  const q = 'recording:' + lq(bareTitle(s.title)) + ' AND artist:' + lq(mainArtist(s.artist));
+  let j = null;
+  for (let tries = 0; tries < 3 && !j; tries++){
+    try{
+      const r = await fetch('https://musicbrainz.org/ws/2/recording?fmt=json&limit=25&query=' + encodeURIComponent(q));
+      if (r.status === 503){ await sleep(1500); continue; }
+      if (!r.ok) break;
+      j = await r.json();
+    }catch(e){ await sleep(1000); }
+  }
+  if (!j) return { year: s.upYear, note: 'Year lookup failed, so this is the YouTube upload year.' };
+  const years = (j.recordings || []).filter(r => r.score >= 90 && r['first-release-date']).map(r => +r['first-release-date'].slice(0, 4)).filter(y => y >= 1900);
+  if (!years.length) return { year: s.upYear, note: 'Not found in the music database, so this is the YouTube upload year.' };
+  const year = Math.min(...years);
+  const count = {}; years.forEach(y => count[y] = (count[y] || 0) + 1);
+  const common = +Object.keys(count).sort((a, b) => count[b] - count[a])[0];
+  if (s.upYear && year > s.upYear) return { year, note: 'Found ' + year + ', but the video was uploaded in ' + s.upYear + '.' };
+  if (common - year > 1) return { year, note: 'Sources disagree: earliest ' + year + ', most listed ' + common + '.' };
+  if (years.length === 1) return { year, note: 'Only one match found.' };
+  return { year, note: '' };
 }
 const songUrl = s => 'https://youtu.be/' + s.id + (s.start ? '?t=' + s.start : '');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let importRun = 0;
+async function startImport(url){
+  const pid = ytPlaylistId(url);
+  if (!pid){ app.impMsg = 'That is not a YouTube playlist link. Open the playlist in YouTube, tap Share and copy the link (it contains "list=").'; return; }
+  const run = ++importRun;
+  app.draftMsg = null; app.draft = { name: '', url, songs: [], stage: 'fetch', done: 0, main: !!app.adminPw };
+  app.impMsg = null; app.screen = 'import'; render();
+  let items;
+  try{ items = await ytFetchPlaylist(pid, n => { if (run !== importRun) return; app.draft.done = n; render(); }); }
+  catch(e){ if (run !== importRun) return; app.draft = null; app.screen = 'library'; app.impMsg = e.message === 'notfound' ? 'YouTube could not find that playlist. Make sure it is Public or Unlisted, not Private.' : 'Could not read the playlist from YouTube. Try again in a minute.'; render(); return; }
+  if (run !== importRun) return;
+  if (!items.length){ app.draft = null; app.screen = 'library'; app.impMsg = 'That playlist has no playable videos.'; render(); return; }
+  const D = app.draft;
+  D.songs = items.map(it => { const t = splitTitle(it.raw, it.channel); return { id: it.id, artist: t.artist, title: t.title, year: it.upYear, start: 0, upYear: it.upYear, raw: it.raw, note: t.sure ? '' : 'Check artist and title.', on: true }; });
+  D.stage = 'years'; D.done = 0; saveDraft(); render();
+  for (const s of D.songs){
+    if (run !== importRun || D.stage !== 'years') return;
+    const t0 = Date.now();
+    const r = await lookupYear(s);
+    if (run !== importRun) return;
+    if (D.stage !== 'years') return;
+    s.year = r.year; if (r.note) s.note = (s.note ? s.note + ' ' : '') + r.note;
+    D.done++; saveDraft(); render();
+    await sleep(Math.max(0, 1100 - (Date.now() - t0)));   // MusicBrainz allows about 1 request a second
+  }
+  if (run === importRun && D.stage === 'years'){ D.stage = 'review'; saveDraft(); render(); }
+}
+const saveDraft = () => store.set('nd_draft', app.draft);
 
+/* ---------- shared playlists (every device) ----------
+   SHARED_URL is a Google Apps Script web app (apps-script/shared-playlists.gs) over a Sheet only the owner
+   can open. GET lists the playlists; POST can only add one. Nobody can edit or delete through it: the owner
+   tidies up by deleting rows in the Sheet. Cached in nd_shared so the list shows instantly and offline. */
+const SHARED_URL = 'https://script.google.com/macros/s/AKfycbw-kOuPZVFAFq4kfTznaDVXg6gNow93sdYgfTfxKu3FO5uSzPHFjALikKmpUOAM2F5u/exec';
+let shared = store.get('nd_shared', null) || { lists: [], at: 0 };
+async function loadShared(){
+  if (!SHARED_URL) return;
+  try{
+    const r = await fetch(SHARED_URL, { cache: 'no-store' });
+    const j = await r.json();
+    if (!Array.isArray(j.playlists)) throw new Error('bad');
+    shared = { lists: j.playlists.map(cleanList).filter(Boolean), at: Date.now() };
+    store.set('nd_shared', shared);
+    fixSel();
+    if (app.screen !== 'game') render(); else save();
+  }catch(e){}
+}
+function cleanList(o){
+  if (!o || !o.id) return null;
+  const songs = [], seen = new Set();
+  (Array.isArray(o.songs) ? o.songs : []).forEach(r => {
+    const id = String(r.id || ''), year = +r.year;
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id) || !(year >= 1900 && year <= 2100)) return;
+    seen.add(id); songs.push({ id, artist: String(r.artist || '').slice(0, 200), title: String(r.title || '').slice(0, 200), year, start: Math.max(0, +r.start || 0) });
+  });
+  return songs.length ? { id: String(o.id), name: String(o.name || 'Playlist').slice(0, 60), created: o.created || '', songs, main: o.main === true } : null;
+}
+const songsOut = songs => songs.map(s => ({ id: s.id, artist: s.artist, title: s.title, year: s.year, start: s.start || 0 }));
+/* POST to the Apps Script. text/plain keeps it a "simple" request, so there is no CORS preflight. */
+async function api(action, data){
+  const body = Object.assign({ action }, data, app.adminPw ? { password: app.adminPw } : {});
+  const r = await fetch(SHARED_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!j.ok){
+    if ((j.error === 'password' || j.error === 'locked') && action !== 'check'){ app.adminPw = null; try{ sessionStorage.removeItem('nd_admin_pw'); }catch(e){} }
+    throw new Error(j.error || 'refused');
+  }
+  return j;
+}
+async function publish(list, main){ return (await api('add', { name: list.name, songs: songsOut(list.songs), main: !!main })).id; }
+
+/* ---------- admin mode ----------
+   The password is checked by the Apps Script on every admin request (it is stored only in the script's
+   properties). The app keeps it for this browser tab only, so closing the tab signs out. */
+async function adminLogin(pw){
+  app.adminMsg = null;
+  if (!pw){ app.adminMsg = 'Type the admin password.'; render(); return; }
+  try{ app.adminPw = pw; await api('check', {}); try{ sessionStorage.setItem('nd_admin_pw', pw); }catch(e){} app.adminAsk = false; app.libMsg = { kind: 'good', text: 'Admin mode is on for this tab.' }; }
+  catch(e){ app.adminPw = null; app.adminMsg = e.message === 'locked' ? 'Too many wrong tries. Admin is locked for 15 minutes.' : e.message === 'password' ? 'Wrong password.' : 'Could not reach the playlist store. Check the internet connection.'; }
+  render();
+}
+async function adminDo(label, fn){
+  app.libMsg = { kind: '', text: label + '…' }; render();
+  try{ await fn(); await loadShared(); app.libMsg = { kind: 'good', text: label + ': done.' }; }
+  catch(e){ app.libMsg = { kind: 'bad', text: e.message === 'password' || e.message === 'locked' ? 'Admin sign-in expired or was refused. Sign in again.' : label + ' failed. Try again.' }; }
+  render();
+}
+
+function uniqueName(name, skipId){ let n = name, i = 2; while (myLists.some(l => l.name === n && l.id !== skipId)) n = name + ' (' + i++ + ')'; return n; }
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 /* ---------- app state ---------- */
-const defaultSetup = () => ({ players: [ { name: 'Player 1', color: COLORS[0] }, { name: 'Player 2', color: COLORS[1] } ], sel: ['__all'] });
+const defaultSetup = () => ({ players: [ { name: 'Player 1', color: COLORS[0] }, { name: 'Player 2', color: COLORS[1] } ], sel: [] });
 const app = {
   screen: 'home',
   setup: store.get('nd_setup', null) || defaultSetup(),
   game: store.get('nd_game', null),
   sound: store.get('nd_sound', true),
-  menu: false, confirm: null, libMsg: null
+  menu: false, confirm: null,
+  adminPw: (() => { try{ return sessionStorage.getItem('nd_admin_pw'); }catch(e){ return null; } })()
 };
 let undoStack = [];
 function save(){ store.set('nd_setup', app.setup); store.set('nd_game', app.game); }
@@ -624,11 +539,11 @@ function insertSorted(G, ids, id){
 }
 function newGame(){
   const S = app.setup;
-  const pool = selectionSongs(S.sel).filter(s => !history.has(s.id));
+  const pool = selectionSongs(S.sel);
   const songs = {}; pool.forEach(s => songs[s.id] = s);
   const deck = shuffle(pool.map(s => s.id));
   const players = S.players.map(p => ({ name: p.name.trim() || 'Player', color: p.color, timeline: [], tokens: START_TOKENS }));
-  players.forEach(p => { const id = deck.pop(); p.timeline.push(id); markPlayed(id); });
+  players.forEach(p => p.timeline.push(deck.pop()));
   app.game = { players, songs, deck, current: 0, turn: 0, phase: 'dj', song: null, qr: false,
     placement: null, named: false, challenger: null, challengeGap: null, result: null, sd: null, over: null,
     sel: S.sel.slice(), total: pool.length };
@@ -640,7 +555,7 @@ function draw(){
   const G = app.game;
   resetTurn(G);
   if (!G.deck.length){ endOutOfSongs(); return; }
-  G.song = G.deck.pop(); markPlayed(G.song); G.phase = 'dj';
+  G.song = G.deck.pop(); G.phase = 'dj';
 }
 function endOutOfSongs(){
   const G = app.game;
@@ -698,37 +613,12 @@ const snap = () => { undoStack.push(JSON.stringify(app.game)); if (undoStack.len
 const A = {
   toHome(){ app.screen = 'home'; },
   toSetup(){ app.screen = 'setup'; },
-  toLibrary(){ app.screen = 'library'; app.libMsg = null; app.edMsg = null; },
-  editPl(name){ app.screen = 'playlist'; app.pl = name; app.plAll = false; app.plFilter = ''; window.scrollTo(0, 0); },
-  plAll(){ app.plAll = !app.plAll; },
-  resetSong(k){ delete edits[k]; saveEdits(); applyEdits(); },
-  exportCsv(){
-    try{
-      const blob = new Blob(['\ufeff' + libraryRows(',')], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dig-the-year-songs.csv';
-      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-      app.edMsg = { kind: 'good', text: 'Downloaded dig-the-year-songs.csv with every song and your edits.' };
-    }catch(e){ app.edMsg = { kind: 'bad', text: 'Download failed on this browser. Use "Copy for Sheet" instead.' }; }
-  },
-  copyRows(){
-    const t = libraryRows('\t');
-    const ok = () => { app.edMsg = { kind: 'good', text: 'Copied ' + songs.length + ' rows with the header. In your Sheet, click cell A1 of the songs tab and paste.' }; render(); };
-    const bad = () => { app.edMsg = { kind: 'bad', text: 'This browser blocked copying. Use "Download CSV" instead.' }; render(); };
-    try{ navigator.clipboard.writeText(t).then(ok, bad); }catch(e){ bad(); }
-    return 'keep';
-  },
-  clearEdits(){ if (app.confirm !== 'edits'){ app.confirm = 'edits'; return 'keep'; } edits = {}; saveEdits(); applyEdits(); app.edMsg = { kind: 'good', text: 'All edits removed. Songs are back to what the Sheet or import says.' }; },
+  toLibrary(){ app.screen = 'library'; app.confirm = null; },
   resume(){ app.screen = 'game'; wake(); },
   addPlayer(){ const P = app.setup.players; if (P.length >= 5) return; const used = P.map(p => p.color); P.push({ name: 'Player ' + (P.length + 1), color: COLORS.find(c => !used.includes(c)) || COLORS[0] }); },
   removePlayer(i){ if (app.setup.players.length > 1) app.setup.players.splice(+i, 1); },
   color(v){ const [i, c] = v.split('|'); const P = app.setup.players; const other = P.find((p, j) => j !== +i && p.color === c); if (other) other.color = P[+i].color; P[+i].color = c; },
-  togglePl(name){
-    let s = app.setup.sel;
-    if (name === '__all') s = ['__all'];
-    else { s = s.filter(x => x !== '__all'); s = s.includes(name) ? s.filter(x => x !== name) : [...s, name]; if (!s.length) s = ['__all']; }
-    app.setup.sel = s;
-  },
-  restartSelection(){ selectionSongs(app.setup.sel).forEach(s => history.delete(s.id)); saveHistory(); },
+  togglePl(key){ const s = app.setup.sel; app.setup.sel = s.includes(key) ? s.filter(x => x !== key) : [...s, key]; app.setup.selAuto = false; },
   start(){ newGame(); app.screen = 'game'; app.menu = false; wake(); },
   showQr(){ app.game.qr = true; },
   playing(){ snap(); app.game.phase = 'place'; },
@@ -755,80 +645,71 @@ const A = {
   sound(){ app.sound = !app.sound; store.set('nd_sound', app.sound); if (app.sound) horn(); },
   testHorn(){ horn(true); },
   endGame(){ if (app.confirm !== 'end'){ app.confirm = 'end'; return 'keep'; } app.game = null; undoStack = []; app.screen = 'home'; app.menu = false; },
-  playAgain(){ const G = app.game; app.setup.players = G.players.map(p => ({ name: p.name, color: p.color })); app.setup.sel = G.sel; app.game = null; app.screen = 'setup'; },
+  playAgain(){ const G = app.game; app.setup.players = G.players.map(p => ({ name: p.name, color: p.color })); app.setup.sel = G.sel; fixSel(); app.game = null; app.screen = 'setup'; },
   finish(){ app.game = null; app.screen = 'home'; },
-  importReplace(){ doImport(false); },
-  sheetLoad(){ loadSheet(false); return 'keep'; },
-  sheetForget(){ sheetUrl = ''; store.del('nd_sheet'); app.libMsg = { kind: 'good', text: 'Sheet link removed. Your current library was kept.' }; },
-  importAdd(){ doImport(true); },
-  resetHistory(){ if (app.confirm !== 'hist'){ app.confirm = 'hist'; return 'keep'; } history = new Set(); saveHistory(); app.libMsg = { kind: 'good', text: 'Play history cleared. Every song can come up again.' }; },
   clearFailed(){ failed = []; store.set('nd_failed', failed); },
-  useSample(){ lib = { songs: importText(SAMPLE).songs, source: 'sample' }; saveLib(); app.libMsg = { kind: 'good', text: 'Sample library restored.' }; },
-  copyHeader(_, el){ const t = 'artist\ttitle\tyear\tyoutube_link\tstart_sec\tplaylists'; try{ navigator.clipboard.writeText(t).then(() => { el.textContent = 'Copied'; }, () => selectHdr()); }catch(e){ selectHdr(); } return 'keep'; }
+  /* playlists */
+  importYt(){ const box = document.getElementById('ytUrl'); app.ytUrl = box ? box.value : ''; startImport(app.ytUrl); return 'keep'; },
+  stopLookup(){ const D = app.draft; if (!D || D.stage !== 'years') return; D.songs.slice(D.done).forEach(x => { x.note = (x.note ? x.note + ' ' : '') + 'Not looked up, so this is the YouTube upload year.'; }); D.stage = 'review'; saveDraft(); },
+  cancelDraft(){ importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library'; },
+  flagged(){ app.onlyFlagged = !app.onlyFlagged; },
+  dropSong(i){ const s = app.draft.songs[+i]; s.on = !s.on; saveDraft(); },
+  editList(id){ const l = myLists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { listId: id, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
+  copyList(id){ const l = shared.lists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { name: l.name + ' (fixed)', songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
+  delList(id){ if (app.confirm !== 'del:' + id){ app.confirm = 'del:' + id; return 'keep'; } myLists = myLists.filter(l => l.id !== id); saveMine(); app.setup.sel = app.setup.sel.filter(k => k !== 'm:' + id); fixSel(); },
+  shareList(id){ const l = myLists.find(x => x.id === id); if (l) shareOne(l); return 'keep'; },
+  saveDraft(){ saveDraftList(); return 'keep'; },
+  adminAsk(){ app.adminAsk = !app.adminAsk; app.adminMsg = null; },
+  adminLogin(){ adminLogin(((document.getElementById('adminPw') || {}).value || '').trim()); return 'keep'; },
+  adminLogout(){ app.adminPw = null; try{ sessionStorage.removeItem('nd_admin_pw'); }catch(e){} app.libMsg = { kind: 'good', text: 'Admin mode is off.' }; },
+  sEdit(id){ const l = shared.lists.find(x => x.id === id); if (!l || !app.adminPw) return; app.draftMsg = null; app.draft = { sheetId: id, main: l.main, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
+  sDel(id){ if (app.confirm !== 'sdel:' + id){ app.confirm = 'sdel:' + id; return 'keep'; } const l = shared.lists.find(x => x.id === id); adminDo('Deleting "' + (l ? l.name : 'playlist') + '"', () => api('delete', { id })); },
+  sMain(id){ const l = shared.lists.find(x => x.id === id); if (!l) return; adminDo(l.main ? 'Moving "' + l.name + '" to player playlists' : 'Making "' + l.name + '" a main playlist', () => api('setMain', { id, main: !l.main })); return 'keep'; },
+  copyFile(name){ const l = admin.lists.find(x => x.name === name); if (!l) return; adminDo('Copying "' + name + '" into the playlist store', () => api('add', { name, songs: songsOut(l.songs), main: true })); return 'keep'; },
+  draftMain(){ app.draft.main = !app.draft.main; saveDraft(); },
 };
-function selectHdr(){ const c = document.getElementById('hdr'); if (!c) return; const r = document.createRange(); r.selectNodeContents(c); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
-function doImport(add, textArg){
-  const box = document.getElementById('pasteBox');
-  const res = importText(textArg != null ? textArg : (box ? box.value : ''));
-  if (res.error){ app.libMsg = { kind: 'bad', text: res.error }; return; }
-  if (!res.songs.length){ app.libMsg = { kind: 'bad', text: 'No usable rows found.', problems: res.problems }; return; }
-  if (add){
-    const map = new Map(lib.songs.map(s => [s.id, s])); res.songs.forEach(s => map.set(s.id, s));
-    lib = { songs: [...map.values()], source: 'custom' };
-  } else lib = { songs: res.songs, source: 'custom' };
-  saveLib();
-  const pl = new Set(); res.songs.forEach(s => s.playlists.forEach(p => pl.add(p)));
-  app.libMsg = { kind: res.problems.length ? 'warn' : 'good',
-    text: (add ? 'Added or updated ' : 'Imported ') + res.songs.length + ' songs in ' + pl.size + ' playlists. Library now has ' + lib.songs.length + ' songs.' + (res.problems.length ? ' ' + res.problems.length + ' rows skipped:' : ''),
-    problems: res.problems };
-  app.setup.sel = ['__all'];
+/* Check the draft, save it on this device, then add it to the shared list. */
+async function saveDraftList(){
+  const D = app.draft; if (!D) return;
+  const name = ((document.getElementById('dName') || {}).value || '').trim();
+  const songs = D.songs.filter(x => x.on);
+  const bad = songs.filter(x => !x.artist.trim() || !x.title.trim() || !(x.year >= 1900 && x.year <= 2100));
+  if (!name){ app.draftMsg = { kind: 'bad', text: 'Give the playlist a name.' }; render(); return; }
+  if (!songs.length){ app.draftMsg = { kind: 'bad', text: 'Keep at least one song.' }; render(); return; }
+  if (bad.length){ app.draftMsg = { kind: 'bad', text: bad.length + ' song' + (bad.length === 1 ? ' needs' : 's need') + ' an artist, a title and a 4-digit year.' }; render(); return; }
+  const clean = songs.map(x => ({ id: x.id, artist: x.artist.trim(), title: x.title.trim(), year: +x.year, start: +x.start || 0 }));
+  if (D.sheetId || (app.adminPw && D.main)){
+    app.draftMsg = { kind: '', text: 'Saving…' }; render();
+    try{
+      if (D.sheetId) await api('update', { id: D.sheetId, name, songs: clean, main: !!D.main });
+      else await api('add', { name, songs: clean, main: true });
+    }catch(e){ app.draftMsg = { kind: 'bad', text: e.message === 'password' || e.message === 'locked' ? 'Admin sign-in was refused. Go back, sign in again, then save.' : 'Could not save to the playlist store. Try again.' }; render(); return; }
+    importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library';
+    await loadShared();
+    app.libMsg = { kind: 'good', text: '"' + name + '" is saved for every device.' }; render(); return;
+  }
+  let list = D.listId && myLists.find(l => l.id === D.listId);
+  if (list){ list.name = uniqueName(name, list.id); list.songs = clean; }
+  else { list = { id: newId(), name: uniqueName(name), created: new Date().toISOString(), songs: clean }; myLists.unshift(list); }
+  saveMine();
+  importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library';
+  if (!app.setup.sel.includes('m:' + list.id)) app.setup.sel.push('m:' + list.id);
+  if (SHARED_URL) await shareOne(list); else { app.libMsg = { kind: 'good', text: 'Saved "' + list.name + '" on this device.' }; render(); }
 }
-
-/* ---------- Google Sheet link ---------- */
-let sheetUrl = store.get('nd_sheet', '');
-let sheetBusy = false;
-function sheetCsvUrl(u){
-  u = String(u || '').trim();
-  if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(u)) return null;
-  let m = u.match(/\/spreadsheets\/d\/e\/([A-Za-z0-9_-]+)/);
-  if (m){ const gid = (u.match(/[?&#]gid=(\d+)/) || [])[1]; return 'https://docs.google.com/spreadsheets/d/e/' + m[1] + '/pub?output=csv' + (gid ? '&gid=' + gid : ''); }
-  m = u.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]+)/);
-  if (m){ const gid = (u.match(/[?&#]gid=(\d+)/) || [])[1]; return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/export?format=csv' + (gid ? '&gid=' + gid : ''); }
-  return null;
-}
-async function loadSheet(quiet){
-  const input = document.getElementById('sheetBox');
-  if (input && !quiet) sheetUrl = input.value.trim();
-  const url = sheetCsvUrl(sheetUrl);
-  if (!url){ if (!quiet){ app.libMsg = { kind: 'bad', text: 'That is not a Google Sheets link. In the Sheet use File → Share → Publish to web, choose CSV, and paste the link it gives you.', sheet: true }; render(); } return; }
-  store.set('nd_sheet', sheetUrl);
-  sheetBusy = true; if (!quiet) render();
-  let text = null, err = null;
+async function shareOne(list){
+  app.libMsg = { kind: '', text: 'Adding "' + list.name + '" to the shared list…' }; render();
   try{
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    text = await r.text();
-    if (/^\s*<(!doctype|html)/i.test(text)) throw new Error('html');
-  }catch(e){ err = e; }
-  sheetBusy = false;
-  if (err){
-    if (!quiet){ app.libMsg = { kind: 'bad', text: 'Could not read the Sheet. Make sure it is published to the web (File → Share → Publish to web → CSV). Your current library was kept.', sheet: true }; render(); }
-    return;
+    const sid = await publish(list);
+    list.sharedId = sid; saveMine();
+    const was = app.setup.sel.includes('m:' + list.id);
+    await loadShared();
+    if (was){ app.setup.sel = app.setup.sel.filter(k => k !== 'm:' + list.id); if (shared.lists.some(l => l.id === sid)) app.setup.sel.push('s:' + sid); fixSel(); }
+    app.libMsg = { kind: 'good', text: '"' + list.name + '" is saved and now shows on every device.' };
+  }catch(e){
+    app.libMsg = { kind: 'bad', text: '"' + list.name + '" is saved on this device, but could not be added to the shared list. Try "Share with everyone" again later.' };
   }
-  const res = importText(text);
-  if (res.error || !res.songs.length){
-    if (!quiet || res.error){ app.libMsg = { kind: 'bad', text: 'Sheet loaded, but ' + (res.error ? res.error : 'no usable rows were found.') + ' Your current library was kept.', problems: res.problems, sheet: true }; }
-    if (!quiet) render(); return;
-  }
-  const keepSel = app.setup.sel.slice();
-  doImport(false, text);
-  if (app.libMsg) app.libMsg.sheet = true;
-  lib.source = 'sheet'; saveLib();
-  if (quiet){ const names = new Set(playlistCounts().map(x => x[0])); const s = keepSel.filter(x => x === '__all' || names.has(x)); app.setup.sel = s.length ? s : ['__all']; save(); }
-  if (quiet && !res.problems.length) app.libMsg = null;
-  if (app.screen !== 'game') render();
+  render();
 }
-
 /* ---------- sound ---------- */
 let actx = null;
 /* Real airhorn recording (airhorn.mp3, supplied by the user).
@@ -877,7 +758,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const tokens = n => `<span class="tk"><span class="tok" aria-hidden="true"></span>${n}</span>`;
 const pdot = c => `<span class="dot" style="--c:${c}"></span>`;
-const libSummary = () => { const pl = playlistCounts().length; return `${songs.length} songs · ${pl} playlists · ${history.size} played${lib.source === 'sample' ? ' · sample library' : ''}`; };
+const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const libSummary = () => { const L = allLists(); return plural(L.length, 'playlist') + ' · ' + plural(new Set(L.flatMap(l => l.songs.map(s => s.id))).size, 'song'); };
 
 function vHome(){
   const live = app.game && !app.game.over;
@@ -896,23 +778,20 @@ function vHome(){
 
 function vSetup(){
   const S = app.setup, n = S.players.length;
-  const pls = playlistCounts();
   const sel = selectionSongs(S.sel);
-  const unplayed = sel.filter(s => !history.has(s.id)).length;
+  const have = sel.length;
   const need = Math.max(15, n * 15);
   let status;
-  if (!sel.length) status = `<div class="note bad">No songs in this selection.</div>`;
-  else if (!unplayed) status = `<div class="note bad">Every song in this selection has been played.
-      <div class="row" style="margin-top:10px"><button class="btn small" data-act="restartSelection">Start over with these playlists</button><span class="muted small">or pick other playlists above</span></div></div>`;
-  else if (unplayed < n + 1) status = `<div class="note bad">Only ${unplayed} unplayed songs here. You need at least ${n + 1} to start: one starting card per player plus one to play.</div>`;
-  else if (unplayed < need) status = `<div class="note">${unplayed} unplayed songs. A ${n}-player game usually needs about ${need}, so you may run out before anyone reaches ${TARGET}. When songs run out, most cards wins.</div>`;
-  else status = `<div class="note good">${unplayed} unplayed songs ready.</div>`;
-  const canStart = unplayed >= n + 1;
-  const plChip = (key, label, count) => {
-    const on = S.sel.includes(key);
-    return `<button class="chip ${on ? 'sel' : ''}" data-act="togglePl" data-v="${esc(key)}" aria-pressed="${on}">${esc(label)} <span class="n">${count}</span></button>`;
+  if (!have) status = `<div class="note bad">No songs in this selection.</div>`;
+  else if (have < n + 1) status = `<div class="note bad">Only ${have} songs here. You need at least ${n + 1} to start: one starting card per player plus one to play.</div>`;
+  else if (have < need) status = `<div class="note">${have} songs. A ${n}-player game usually needs about ${need}, so you may run out before anyone reaches ${TARGET}. When songs run out, most cards wins.</div>`;
+  else status = `<div class="note good">${have} songs, shuffled fresh for this game.</div>`;
+  const canStart = have >= n + 1;
+  const plChip = l => {
+    const on = S.sel.includes(l.key);
+    return `<button class="chip ${on ? 'sel' : ''}" data-act="togglePl" data-v="${esc(l.key)}" aria-pressed="${on}">${esc(l.name)} <span class="n">${l.songs.length}</span></button>`;
   };
-  const unpl = list => list.filter(s => !history.has(s.id)).length;
+  const group = (kind, label) => { const L = allLists().filter(l => l.kind === kind); return L.length ? `<p class="grp">${label}</p><div class="chips">${L.map(plChip).join('')}</div>` : ''; };
   return `<div class="page-head"><h1>New game</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
   <section class="panel"><h2>Players</h2>
     ${S.players.map((p, i) => `<div class="prow">
@@ -923,8 +802,9 @@ function vSetup(){
     <div class="row">${n < 5 ? `<button class="btn small" data-act="addPlayer">Add player</button>` : ''}<span class="muted small">${n} of 5 players${n === 1 ? ' · solo: skip and buy tokens only' : n === 2 ? ' · challenges need 3 or more players' : ''}</span></div>
   </section>
   <section class="panel"><h2>Playlists</h2>
-    <p class="muted small">Pick one or more playlists. Songs in several playlists are only used once. The number is unplayed songs.</p>
-    <div class="chips">${plChip('__all', 'All songs', unpl(songs.filter(playable)))}${pls.map(([p]) => plChip(p, p, unpl(songs.filter(s => s.playlists.includes(p))))).join('')}</div>
+    <p class="muted small">Pick one or more playlists. Songs come up in random order, each with the same chance, and never twice in a game. A song in several picked playlists counts once.</p>
+    ${group('admin', 'Main playlists')}${group('shared', 'Shared by players')}${group('mine', 'On this device only')}
+    ${allLists().length ? '' : `<div class="note bad">No playlists loaded yet. Check the internet connection, or import one under Playlists.</div>`}
     ${status}
   </section>
   <div class="row"><button class="btn primary big" data-act="start" ${canStart ? '' : 'disabled'}>Start game</button>
@@ -932,83 +812,95 @@ function vSetup(){
 }
 
 function vLibrary(){
-  const pls = allPlaylists(), m = app.libMsg;
-  const nEd = editedCount(), em = app.edMsg;
+  const m = app.libMsg, ad = !!app.adminPw;
+  const row = (l, btns) => `<div class="lrow"><div class="lname"><b>${esc(l.name)}</b><span>${plural(l.songs.length, 'song')}</span></div><div class="ebtns">${btns}</div></div>`;
+  const delBtn = (act, id, conf) => `<button class="btn ${app.confirm === conf ? 'warn' : 'ghost'} small" data-act="${act}" data-v="${esc(id)}">${app.confirm === conf ? 'Tap again to delete' : 'Delete'}</button>`;
+  const adminBtns = l => l.file ? '' : `<button class="btn ghost small" data-act="sEdit" data-v="${esc(l.list.id)}">Edit</button>
+       <button class="btn ghost small" data-act="sMain" data-v="${esc(l.list.id)}">${l.list.main ? 'Make player playlist' : 'Make main'}</button>
+       ${delBtn('sDel', l.list.id, 'sdel:' + l.list.id)}`;
+  const L = allLists(), mains = L.filter(l => l.kind === 'admin'), players = L.filter(l => l.kind === 'shared'), local = L.filter(l => l.kind === 'mine');
   return `<div class="page-head"><h1>Playlists</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
-  <section class="panel">
-    <p>${libSummary()}</p>
-    ${lib.source === 'sample' ? `<div class="note">You're using the ${lib.songs.length}-song sample library. Replace it with your own songs below when your Sheet is ready.</div>` : ''}
-    <p class="muted small">Tap a playlist to choose which songs play in it and fix a year, link or start time.</p>
-    <div class="plist">${pls.map(([p, c]) => `<button data-act="editPl" data-v="${esc(p)}"><b>${esc(p)}</b><span class="n">${c}</span><span class="ed">Edit</span></button>`).join('') || '<p class="muted">No playlists yet.</p>'}</div>
-    <div class="row"><button class="btn ${app.confirm === 'hist' ? 'warn' : ''} small" data-act="resetHistory">${app.confirm === 'hist' ? 'Tap again to clear play history' : 'Reset play history (' + history.size + ' played)'}</button>
-    ${lib.source !== 'sample' ? `<button class="btn ghost small" data-act="useSample">Switch back to sample library</button>` : ''}</div>
+  ${ad ? `<div class="note good row" style="justify-content:space-between">Admin mode: you can edit, delete and promote playlists. <button class="btn ghost small" data-act="adminLogout">Leave admin mode</button></div>` : ''}
+  ${m ? `<div class="note ${m.kind}">${esc(m.text)}</div>` : ''}
+  <section class="panel"><h2>Main playlists</h2>
+    <p class="muted small">Always available. Only the admin can change these.</p>
+    <div class="lrows">${mains.map(l => row(l, ad && storeOn() ? adminBtns(l) : '')).join('') || `<p class="muted small">${storeOn() ? 'None yet.' : admin.error ? 'Could not load them. Check the internet connection.' : 'Loading…'}</p>`}</div>
+    ${ad && storeOn() ? (() => { const names = new Set(shared.lists.map(l => l.name)), files = admin.lists.filter(l => !names.has(l.name));
+      return files.length ? `<p class="grp">In the game files, not in the store (players don't see these)</p><div class="lrows">${files.map(l => row(Object.assign({ file: true }, l), `<button class="btn ghost small" data-act="copyFile" data-v="${esc(l.name)}">Copy in as main playlist</button>`)).join('')}</div>` : ''; })() : ''}
+    ${ad && admin.problems && admin.problems.length ? `<details class="small muted"><summary>${plural(admin.problems.length, 'row')} skipped in the game files</summary><ul class="problems">${admin.problems.map(p => `<li>${esc(p.file)} row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul></details>` : ''}
   </section>
-  <section class="panel"><h2>Your edits</h2>
-    ${nEd ? `<p class="small">${nEd} song${nEd === 1 ? '' : 's'} edited on this device. Edits stay when the Sheet reloads, but only on this device. To make them permanent, download or copy the full list and paste it over your Sheet's songs tab.</p>
-      <div class="row"><button class="btn small" data-act="exportCsv">Download CSV</button><button class="btn small" data-act="copyRows">Copy for Sheet</button>
-      <button class="btn ${app.confirm === 'edits' ? 'warn' : 'ghost'} small" data-act="clearEdits">${app.confirm === 'edits' ? 'Tap again to remove all edits' : 'Remove all edits'}</button></div>`
-    : `<p class="muted small">No edits yet. Changes you make in a playlist show up here, and you can copy them back into your Sheet.</p>`}
-    ${em ? `<div class="note ${em.kind === 'bad' ? 'bad' : 'good'}">${esc(em.text)}</div>` : ''}
+  <section class="panel"><h2>Shared by players</h2>
+    ${SHARED_URL ? `<p class="muted small">Every playlist a player imports shows here on every device. To fix one, make a copy, fix it and save the copy.</p>
+      <div class="lrows">${players.map(l => row(l, ad ? adminBtns(l) : `<button class="btn ghost small" data-act="copyList" data-v="${esc(l.list.id)}">Copy and fix</button>`)).join('') || '<p class="muted small">None yet. Import one below.</p>'}</div>`
+    : `<p class="muted small">The shared list isn't switched on yet, so imported playlists stay on the device they were made on.</p>`}
   </section>
-  <section class="panel"><h2>Load from your Google Sheet</h2>
-    <p class="small">In the Sheet: File → Share → Publish to web, pick the songs tab and <b>Comma-separated values (.csv)</b>, then paste the link here. The app remembers it and re-reads the Sheet every time it opens.</p>
-    <label for="sheetBox" class="small muted">Published Sheet link</label>
-    <input type="url" id="sheetBox" class="sheet" value="${esc(sheetUrl)}" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv">
-    <div class="row"><button class="btn primary" data-act="sheetLoad" ${sheetBusy ? 'disabled' : ''}>${sheetBusy ? 'Loading…' : sheetUrl ? 'Update from Sheet' : 'Load from Sheet'}</button>
-    ${sheetUrl ? `<button class="btn ghost small" data-act="sheetForget">Forget link</button>` : ''}</div>
-    <p class="muted small">Loading replaces the library with the Sheet. Play history and your edits are kept.</p>
-    ${m && m.sheet ? `<div class="note ${m.kind === 'bad' ? 'bad' : m.kind === 'good' ? 'good' : ''}">${esc(m.text)}${m.problems && m.problems.length ? `<ul class="problems">${m.problems.map(p => `<li>Row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul>` : ''}</div>` : ''}
-  </section>
-  <section class="panel"><h2>Or paste or upload</h2>
-    <p class="muted small">First row must be these column names. Playlists are comma-separated, like <b>80s, Rock, Party</b>.</p>
-    <div class="row"><code class="hdr" id="hdr">artist | title | year | youtube_link | start_sec | playlists</code><button class="btn ghost small" data-act="copyHeader">Copy header</button></div>
-    <p class="small">In the Sheet, select everything (⌘A or Ctrl+A), copy, and paste here. Or download it as CSV (File → Download → .csv) and upload the file.</p>
-    <label for="pasteBox" class="small muted">Paste rows here</label>
-    <textarea id="pasteBox" placeholder="artist&#9;title&#9;year&#9;youtube_link&#9;start_sec&#9;playlists&#10;Queen&#9;Bohemian Rhapsody&#9;1975&#9;https://youtu.be/…&#9;0&#9;70s, Rock"></textarea>
-    <div class="row">
-      <button class="btn primary" data-act="importReplace">Replace library</button>
-      <button class="btn" data-act="importAdd">Add to library</button>
-      <label class="small muted" for="csvFile">or upload CSV</label><input type="file" id="csvFile" accept=".csv,.tsv,.txt,text/csv">
-    </div>
-    <p class="muted small">"Add" updates songs with the same YouTube video and keeps the rest.</p>
-    ${m && !m.sheet ? `<div class="note ${m.kind === 'bad' ? 'bad' : m.kind === 'good' ? 'good' : ''}">${esc(m.text)}${m.problems && m.problems.length ? `<ul class="problems">${m.problems.map(p => `<li>Row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul>` : ''}</div>` : ''}
+  ${local.length ? `<section class="panel"><h2>On this device only</h2>
+    <p class="muted small">Not shared yet${SHARED_URL ? ', usually because the connection dropped while saving' : ''}.</p>
+    <div class="lrows">${local.map(l => row(l, `<button class="btn ghost small" data-act="editList" data-v="${esc(l.list.id)}">Edit</button>
+      ${SHARED_URL ? `<button class="btn ghost small" data-act="shareList" data-v="${esc(l.list.id)}">Share with everyone</button>` : ''}
+      ${delBtn('delList', l.list.id, 'del:' + l.list.id)}`)).join('')}</div>
+  </section>` : ''}
+  <section class="panel"><h2>Import from YouTube</h2>
+    ${YT_API_KEY ? `<p class="small">Paste the link of a YouTube playlist (Public or Unlisted). The app reads the songs and looks up each one's release year. You then check the years before saving.</p>
+      <label for="ytUrl" class="small muted">YouTube playlist link</label>
+      <input type="url" id="ytUrl" class="sheet" value="${esc(app.ytUrl || '')}" placeholder="https://www.youtube.com/playlist?list=…" autocomplete="off" spellcheck="false">
+      <div class="row"><button class="btn primary" data-act="importYt">Import playlist</button></div>
+      ${app.impMsg ? `<div class="note bad">${esc(app.impMsg)}</div>` : ''}`
+    : `<p class="muted small">The importer isn't switched on yet: the game's owner still needs to add a YouTube key.</p>`}
   </section>
   <section class="panel"><h2>Songs that didn't play</h2>
-    ${failed.length ? `<p class="muted small">The DJ marked these as broken during games. Fix their links in a playlist here, or in the Sheet.</p>
+    ${failed.length ? `<p class="muted small">The DJ marked these as broken during games on this device.</p>
       <ul class="problems">${failed.map(f => `<li>${esc(f.artist)} — ${esc(f.title)} <span class="url">youtu.be/${esc(f.id)}</span></li>`).join('')}</ul>
       <div class="row"><button class="btn ghost small" data-act="clearFailed">Clear list</button></div>` : `<p class="muted small">None so far.</p>`}
-  </section>`;
+  </section>
+  ${SHARED_URL && !ad ? `<div class="row"><button class="linkbtn small" data-act="adminAsk">Admin</button></div>
+    ${app.adminAsk ? `<section class="panel"><h2>Admin sign-in</h2>
+      <label for="adminPw" class="small muted">Admin password</label>
+      <input type="password" id="adminPw" class="sheet" autocomplete="current-password">
+      <div class="row"><button class="btn primary" data-act="adminLogin">Sign in</button></div>
+      ${app.adminMsg ? `<div class="note bad">${esc(app.adminMsg)}</div>` : ''}</section>` : ''}` : ''}`;
 }
 
-function vPlaylist(){
-  const p = app.pl;
-  const inPl = s => s.playlists.includes(p);
-  const related = s => { const b = baseByKey.get(s.key), e = edits[s.key]; return inPl(s) || (b && b.playlists.includes(p)) || (e && e.pl && p in e.pl); };
-  const list = app.plAll ? songs : songs.filter(related);
-  const on = songs.filter(inPl).length;
-  const row = s => {
-    const k = s.key, checked = inPl(s);
-    return `<div class="erow ${checked ? '' : 'off'}" data-key="${esc(k)}" data-search="${esc((s.artist + ' ' + s.title + ' ' + s.year).toLowerCase())}">
-      <label class="echk"><input type="checkbox" data-ed="on" ${checked ? 'checked' : ''} aria-label="Play ${esc(s.artist)} — ${esc(s.title)} in ${esc(p)}">
-        <span class="etitle"><b>${esc(s.title)}</b><span>${esc(s.artist)}</span></span>
-        <span class="etag" ${edits[k] ? '' : 'hidden'}>Edited</span></label>
+function vImport(){
+  const D = app.draft;
+  if (!D){ app.screen = 'library'; return vLibrary(); }
+  const head = `<div class="page-head"><h1>${D.listId || D.sheetId ? 'Edit playlist' : 'New playlist'}</h1><button class="btn ghost small" data-act="cancelDraft">Cancel</button></div>`;
+  if (D.stage === 'fetch') return head + `<section class="panel"><p>Reading the playlist from YouTube… ${D.done ? plural(D.done, 'song') : ''}</p></section>`;
+  if (D.stage === 'years'){
+    const n = D.songs.length;
+    return head + `<section class="panel"><h2>Looking up release years</h2>
+      <p>${D.done} of ${n} songs</p><div class="bar"><span style="width:${Math.round(D.done / n * 100)}%"></span></div>
+      <p class="muted small">About one song a second, so this takes ${Math.max(1, Math.round((n - D.done) / 60))} min. Keep this screen open.</p>
+      <div class="row"><button class="btn ghost small" data-act="stopLookup">Stop and check what we have</button></div></section>`;
+  }
+  const flagged = D.songs.filter(x => x.on && x.note).length;
+  const order = D.songs.map((x, i) => i).sort((a, b) => (!!D.songs[b].note - !!D.songs[a].note) || a - b);
+  const rows = order.filter(i => !app.onlyFlagged || D.songs[i].note).map(i => { const x = D.songs[i];
+    return `<div class="erow ${x.on ? '' : 'off'} ${x.note ? 'flag' : ''}" data-i="${i}">
+      ${x.note ? `<p class="enote">${esc(x.note)}</p>` : ''}
+      ${x.raw ? `<p class="small muted eraw">YouTube: ${esc(x.raw)}</p>` : ''}
       <div class="efields">
-        <label>Year<input type="text" inputmode="numeric" maxlength="4" data-ed="year" value="${s.year}"></label>
-        <label class="elink">YouTube link<input type="url" data-ed="link" value="https://youtu.be/${esc(s.id)}" autocomplete="off" spellcheck="false"></label>
-        <label>Start at (sec or m:ss)<input type="text" inputmode="numeric" data-ed="start" value="${s.start || 0}"></label>
-        <div class="ebtns"><a class="btn ghost small" data-test href="${esc(songUrl(s))}" target="_blank" rel="noopener">Test</a>
-          <button class="btn ghost small" data-act="resetSong" data-v="${esc(k)}" ${edits[k] ? '' : 'hidden'}>Undo edits</button></div>
+        <label>Artist<input type="text" data-dr="artist" value="${esc(x.artist)}"></label>
+        <label>Title<input type="text" data-dr="title" value="${esc(x.title)}"></label>
+        <label>Year<input type="text" inputmode="numeric" maxlength="4" data-dr="year" value="${x.year || ''}" class="${x.year >= 1900 ? '' : 'bad'}"></label>
+        <label>Start (sec or m:ss)<input type="text" inputmode="numeric" data-dr="start" value="${x.start || 0}"></label>
       </div>
-      <p class="emsg" role="alert"></p>
-    </div>`;
-  };
-  return `<div class="page-head"><h1>${esc(p)}</h1><button class="btn ghost small" data-act="toLibrary">Back to playlists</button></div>
-  <section class="panel">
-    <p class="small"><b id="plOn">${on}</b> songs play in this playlist. Untick a song to leave it out. Changes save as you go. Year, link and start time apply to the song in every playlist.</p>
-    <div class="efilter"><input type="search" id="plFilter" placeholder="Find a song, artist or year" value="${esc(app.plFilter || '')}" aria-label="Find a song">
-      <button class="btn ${app.plAll ? 'on' : 'ghost'} small" data-act="plAll" aria-pressed="${!!app.plAll}">${app.plAll ? 'Showing all songs' : 'Add songs from other playlists'}</button></div>
-    <div class="erows">${list.map(row).join('') || '<p class="muted">No songs.</p>'}</div>
-  </section>`;
+      <div class="ebtns"><a class="btn ghost small" href="${esc(songUrl(x))}" target="_blank" rel="noopener">Play</a>
+        <button class="btn ghost small" data-act="dropSong" data-v="${i}">${x.on ? 'Leave out' : 'Put back'}</button></div>
+    </div>`; }).join('');
+  const dm = app.draftMsg;
+  return head + `<section class="panel">
+      <label for="dName" class="small muted">Playlist name</label>
+      <input type="text" id="dName" class="sheet" maxlength="60" value="${esc(D.name)}" placeholder="e.g. Summer party">
+      <p class="small">${plural(D.songs.filter(x => x.on).length, 'song')}. ${flagged ? `<b>${flagged} need a check</b>: they're at the top with the reason. ` : 'Every year was found. Spot-check a few anyway. '}A wrong year spoils the game, so check what you're unsure of.</p>
+      ${flagged ? `<div class="row"><button class="btn ${app.onlyFlagged ? 'on' : 'ghost'} small" data-act="flagged" aria-pressed="${!!app.onlyFlagged}">Show only songs to check</button></div>` : ''}
+    </section>
+    <div class="erows">${rows}</div>
+    <section class="panel">
+      ${dm ? `<div class="note ${dm.kind}">${esc(dm.text)}</div>` : ''}
+      ${app.adminPw && !D.listId ? `<div class="row"><button class="btn small ${D.main ? 'on' : 'ghost'}" data-act="draftMain" aria-pressed="${!!D.main}">${D.main ? '✓ ' : ''}Main playlist (always available)</button></div>` : ''}
+      <div class="row"><button class="btn primary big" data-act="saveDraft">${D.sheetId ? 'Save changes for everyone' : app.adminPw && D.main ? 'Save as main playlist' : SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
+    </section>`;
 }
 
 function vTopbar(){
@@ -1168,15 +1060,12 @@ function vOver(){
 const root = document.getElementById('app');
 function render(){
   if (app.screen === 'game' && !app.game) app.screen = 'home';
-  root.innerHTML = app.screen === 'setup' ? vSetup() : app.screen === 'library' ? vLibrary() : app.screen === 'playlist' ? vPlaylist() : app.screen === 'game' ? vGame() : vHome();
+  root.innerHTML = app.screen === 'setup' ? vSetup() : app.screen === 'library' ? vLibrary() : app.screen === 'import' ? vImport() : app.screen === 'game' ? vGame() : vHome();
   const q = document.getElementById('qr');
   if (q){
     if (window.QRCode){ try{ new QRCode(q, { text: q.dataset.url, width: 440, height: 440, colorDark: '#17132b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }catch(e){ q.textContent = 'Could not draw the QR code. Open the link below on the music phone.'; } }
     else { q.innerHTML = '<p style="color:#17132b;font-size:14px">QR code library did not load. Type or share the link below on the music phone.</p>'; }
   }
-  if (app.screen === 'playlist') filterRows();
-  const f = document.getElementById('csvFile');
-  if (f) f.addEventListener('change', () => { const file = f.files && f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => { doImport(false, String(rd.result)); save(); render(); }; rd.readAsText(file); });
   save();
 }
 
@@ -1191,33 +1080,23 @@ document.addEventListener('click', e => {
   const before = app.confirm;
   const res = A[name](el.dataset.v, el);
   if (res !== 'keep' && before === app.confirm) app.confirm = null;
-  if (name !== 'menu' && name !== 'sound' && name !== 'endGame' && name !== 'testHorn' && name !== 'copyHeader') app.menu = false;
-  if (name === 'copyHeader') return;
+  if (name !== 'menu' && name !== 'sound' && name !== 'endGame' && name !== 'testHorn') app.menu = false;
   render();
 });
-function filterRows(){
-  const q = String(app.plFilter || '').trim().toLowerCase();
-  document.querySelectorAll('.erow').forEach(r => { r.hidden = !!q && !r.dataset.search.includes(q); });
-}
 document.addEventListener('change', e => {
-  const t = e.target, f = t.dataset && t.dataset.ed; if (!f) return;
-  const row = t.closest('[data-key]'); if (!row) return;
-  const k = row.dataset.key;
-  const res = setEdit(k, f, t.type === 'checkbox' ? t.checked : t.value, app.pl);
-  const msg = row.querySelector('.emsg');
-  if (res.error){ msg.textContent = res.error; t.classList.add('bad'); return; }
-  msg.textContent = ''; t.classList.remove('bad');
-  if (t.type !== 'checkbox') t.value = res.value;
-  const s = songs.find(x => x.key === k);
-  row.classList.toggle('off', !s.playlists.includes(app.pl));
-  row.querySelector('.etag').hidden = !edits[k];
-  row.querySelector('[data-act=resetSong]').hidden = !edits[k];
-  row.querySelector('[data-test]').href = songUrl(s);
-  row.dataset.search = (s.artist + ' ' + s.title + ' ' + s.year).toLowerCase();
-  const n = document.getElementById('plOn'); if (n) n.textContent = songs.filter(x => x.playlists.includes(app.pl)).length;
+  const t = e.target, f = t.dataset && t.dataset.dr; if (!f || !app.draft) return;
+  const row = t.closest('[data-i]'), x = app.draft.songs[+row.dataset.i];
+  if (f === 'year'){ const v = t.value.trim(); const ok = /^\d{4}$/.test(v) && +v >= 1900 && +v <= 2100; t.classList.toggle('bad', !ok); if (ok){ x.year = +v; x.note = ''; } }
+  else if (f === 'start'){ const v = parseStart(t.value); if (v != null){ x.start = v; t.value = v; } else t.value = x.start || 0; }
+  else { x[f] = t.value; if (x.note === 'Check artist and title.') x.note = ''; }
+  saveDraft();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'adminPw'){ e.preventDefault(); A.adminLogin(); }
+  if (e.key === 'Enter' && e.target.id === 'ytUrl'){ e.preventDefault(); A.importYt(); }
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'plFilter'){ app.plFilter = e.target.value; filterRows(); return; }
+  if (e.target.id === 'dName' && app.draft){ app.draft.name = e.target.value; return; }
   const i = e.target.dataset && e.target.dataset.name;
   if (i != null){ app.setup.players[+i].name = e.target.value; save(); }
 });
@@ -1264,12 +1143,16 @@ document.addEventListener('pointercancel', endDrag);
 /* ---------- boot ---------- */
 function boot(){
   if (app.game && app.game.phase !== 'over' && store.get('nd_screen', null) === 'game') app.screen = 'game';
+  const d = store.get('nd_draft', null);
+  if (d && d.songs && d.songs.length){ if (d.stage !== 'review') d.stage = 'review'; app.draft = d; if (app.screen !== 'game') app.screen = 'import'; }
+  fixSel();
   render();
 }
 window.addEventListener('pagehide', () => store.set('nd_screen', app.screen));
 setInterval(() => store.set('nd_screen', app.screen), 4000);
 boot();
-if (sheetUrl) loadSheet(true);
+loadAdmin();
+loadShared();
 })();
 </script>
 </body>
