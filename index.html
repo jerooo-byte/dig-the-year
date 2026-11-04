@@ -85,6 +85,9 @@ code.hdr{display:block;background:var(--surface);border-radius:8px;padding:10px 
 .plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
 .plist div{background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;gap:8px}
 .plist span{color:var(--muted);font-variant-numeric:tabular-nums}
+ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+textarea.script{min-height:120px;margin-top:8px;font-size:12px}
+.syncstatus.good{color:var(--good)} .syncstatus.bad{color:var(--bad)}
 ul.problems{margin:0;padding-left:20px;font-size:14px;color:var(--muted);max-height:220px;overflow:auto}
 input[type=file]{font-size:14px;color:var(--muted);max-width:100%}
 .plist button{appearance:none;border:1.5px solid transparent;background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;text-align:left;min-height:48px}
@@ -511,9 +514,20 @@ const songKey = s => (String(s.artist) + '|' + String(s.title)).toLowerCase().re
 let songs = [], baseByKey = new Map();
 function applyEdits(){
   baseByKey = new Map();
+  lib.songs.forEach(b => { const k = songKey(b); if (!baseByKey.has(k)) baseByKey.set(k, b); });
+  /* Drop any edit the library (Sheet) already matches, e.g. after a save to the Sheet came back on reload. */
+  let pruned = false;
+  for (const k in edits){
+    const b = baseByKey.get(k), e = edits[k]; if (!b) continue;
+    if (e.year === b.year){ delete e.year; pruned = true; }
+    if (e.id === b.id){ delete e.id; pruned = true; }
+    if (e.start != null && e.start === (b.start || 0)){ delete e.start; pruned = true; }
+    if (e.pl){ for (const p in e.pl) if (e.pl[p] === b.playlists.includes(p)){ delete e.pl[p]; pruned = true; } if (!Object.keys(e.pl).length) delete e.pl; }
+    if (!Object.keys(e).length){ delete edits[k]; pruned = true; }
+  }
+  if (pruned) saveEdits();
   songs = lib.songs.map(b => {
     const k = songKey(b), e = edits[k];
-    if (!baseByKey.has(k)) baseByKey.set(k, b);
     const s = { ...b, key: k, playlists: b.playlists.slice() };
     if (e){
       if (e.year) s.year = e.year;
@@ -565,7 +579,7 @@ function setEdit(k, field, v, pl){
     if (Object.keys(pls).length) e.pl = pls; else delete e.pl;
   }
   if (Object.keys(e).length) edits[k] = e; else delete edits[k];
-  saveEdits(); applyEdits();
+  saveEdits(); applyEdits(); markDirty(k);
   return { value };
 }
 const csvCell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
@@ -575,6 +589,126 @@ function libraryRows(delim){
     .map(r => r.map(cell).join(delim)).join('\n');
 }
 applyEdits();
+
+/* ---------- save edits to the Google Sheet ----------
+   A static site can't write to a Sheet by itself, so the Sheet gets a small Apps Script web app
+   (SHEET_SCRIPT below, pasted in by the user) that updates rows matched by artist + title.
+   nd_sync = { url, key }. nd_pending = song keys whose current values still need sending.
+   Local edits stay until the Sheet reload shows the same values; applyEdits() then drops them. */
+let sync = store.get('nd_sync', null);
+if (!sync || !sync.key){ const a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); sync = { url: (sync && sync.url) || '', key: [...a].map(x => x.toString(16).padStart(2, '0')).join('') }; store.set('nd_sync', sync); }
+let pending = new Set(store.get('nd_pending', []));
+const savePending = () => store.set('nd_pending', [...pending]);
+let syncState = { busy: false, kind: '', text: '' }, syncTimer = null;
+const SHEET_SCRIPT = String.raw`// Dig the Year: lets the app save song edits into this Sheet.
+// Paste into Extensions > Apps Script, then Deploy > New deployment > Web app
+// (Execute as: Me, Who has access: Anyone). Keep the key private.
+var KEY = '__KEY__';
+var COLS = {
+  artist: ['artist', 'artists'], title: ['title', 'song', 'song_title'],
+  year: ['year', 'original_year', 'release_year'],
+  link: ['youtube_link', 'link', 'youtube', 'url', 'youtube_url'],
+  start: ['start_sec', 'start', 'start_second', 'start_seconds'],
+  playlists: ['playlists', 'playlist']
+};
+var NEW_NAMES = { start: 'start_sec', playlists: 'playlists' };
+function norm(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/[\s_-]+/g, '_'); }
+function songKey(a, t) { return (String(a) + '|' + String(t)).toLowerCase().replace(/\s+/g, ' ').trim(); }
+function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function findTab() {
+  var tabs = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  for (var i = 0; i < tabs.length; i++) {
+    if (tabs[i].getLastColumn() < 1) continue;
+    var h = tabs[i].getRange(1, 1, 1, tabs[i].getLastColumn()).getValues()[0].map(norm);
+    if (h.indexOf('artist') >= 0 && h.indexOf('title') >= 0) return tabs[i];
+  }
+  return null;
+}
+function doGet() { return out({ ok: true, app: 'dig-the-year' }); }
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var req = JSON.parse(e.postData.contents);
+    if (req.key !== KEY) return out({ ok: false, error: 'wrong key' });
+    var tab = findTab();
+    if (!tab) return out({ ok: false, error: 'no tab with artist and title columns' });
+    var data = tab.getDataRange().getValues();
+    var hdr = data[0].map(norm), col = {};
+    Object.keys(COLS).forEach(function (k) {
+      for (var i = 0; i < hdr.length; i++) if (COLS[k].indexOf(hdr[i]) >= 0) { col[k] = i; break; }
+      if (col[k] == null && NEW_NAMES[k]) { hdr.push(NEW_NAMES[k]); col[k] = hdr.length - 1; tab.getRange(1, hdr.length).setValue(NEW_NAMES[k]); }
+    });
+    var rowOf = {};
+    for (var r = 1; r < data.length; r++) {
+      var key = songKey(data[r][col.artist], data[r][col.title]);
+      if (!(key in rowOf)) rowOf[key] = r + 1;
+    }
+    var updated = 0, missing = [];
+    (req.songs || []).forEach(function (s) {
+      var row = rowOf[songKey(s.artist, s.title)];
+      if (!row) { missing.push(s.artist + ' - ' + s.title); return; }
+      tab.getRange(row, col.year + 1).setValue(Number(s.year));
+      tab.getRange(row, col.link + 1).setValue(s.link);
+      tab.getRange(row, col.start + 1).setValue(Number(s.start) || 0);
+      tab.getRange(row, col.playlists + 1).setValue(s.playlists);
+      updated++;
+    });
+    return out({ ok: true, updated: updated, missing: missing });
+  } finally {
+    lock.releaseLock();
+  }
+}
+`;
+const sheetScript = () => SHEET_SCRIPT.replace('__KEY__', sync.key);
+function markDirty(k){
+  pending.add(k); savePending();
+  if (!sync.url) return;
+  clearTimeout(syncTimer); syncTimer = setTimeout(pushEdits, 1200);
+  showSync('', pending.size + ' change' + (pending.size === 1 ? '' : 's') + ' waiting to save…');
+}
+function showSync(kind, text){
+  syncState.kind = kind; syncState.text = text;
+  document.querySelectorAll('.syncstatus').forEach(el => { el.textContent = text; el.className = 'syncstatus small ' + kind; });
+}
+async function pushEdits(){
+  if (!sync.url || syncState.busy || !pending.size) return;
+  const keys = [...pending].filter(k => baseByKey.has(k));
+  const sent = new Map(keys.map(k => [k, JSON.stringify(edits[k] || null)]));
+  const list = keys.map(k => { const b = baseByKey.get(k), s = songs.find(x => x.key === k);
+    return { artist: b.artist, title: b.title, year: s.year, link: 'https://youtu.be/' + s.id, start: s.start || 0, playlists: s.playlists.join(', ') }; });
+  [...pending].forEach(k => { if (!baseByKey.has(k)) pending.delete(k); });
+  if (!list.length){ savePending(); return; }
+  syncState.busy = true; showSync('', 'Saving ' + list.length + ' song' + (list.length === 1 ? '' : 's') + ' to the Sheet…');
+  let res = null;
+  try{
+    const r = await fetch(sync.url, { method: 'POST', body: JSON.stringify({ key: sync.key, songs: list }) });
+    res = await r.json();
+  }catch(e){ res = { ok: false, error: 'network' }; }
+  syncState.busy = false;
+  if (!res || !res.ok){
+    const why = res && res.error === 'wrong key' ? 'The Sheet script has a different key. Copy the script again and redeploy it.'
+      : res && res.error === 'network' ? 'Could not reach the Sheet. Edits are kept here and will be sent next time.' : 'The Sheet said: ' + (res && res.error || 'unknown error') + '.';
+    showSync('bad', 'Not saved to the Sheet. ' + why); return;
+  }
+  sent.forEach((v, k) => { if (JSON.stringify(edits[k] || null) === v) pending.delete(k); });
+  savePending();
+  const miss = res.missing && res.missing.length;
+  showSync(miss ? 'bad' : 'good', 'Saved ' + res.updated + ' song' + (res.updated === 1 ? '' : 's') + ' to the Sheet.' + (miss ? ' Not in the Sheet, so kept on this device only: ' + res.missing.join('; ') + '.' : ''));
+  if (pending.size){ clearTimeout(syncTimer); syncTimer = setTimeout(pushEdits, 800); }
+}
+async function connectSync(){
+  const box = document.getElementById('syncBox'); const u = (box ? box.value : '').trim();
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec/.test(u)){ app.edMsg = { kind: 'bad', text: 'That is not an Apps Script web app link. It starts with https://script.google.com/macros/s/ and ends with /exec.' }; render(); return; }
+  app.edMsg = { kind: '', text: 'Checking the link…' }; render();
+  let ok = false;
+  try{ const r = await fetch(u); const j = await r.json(); ok = j && j.app === 'dig-the-year'; }catch(e){}
+  if (!ok){ app.edMsg = { kind: 'bad', text: 'Could not reach the script. Check that the deployment is a Web app with access set to Anyone, then try again.' }; render(); return; }
+  sync.url = u; store.set('nd_sync', sync);
+  songs.forEach(s => { if (edits[s.key]) pending.add(s.key); }); savePending();
+  app.edMsg = { kind: 'good', text: 'Connected. From now on every edit saves to the Sheet.' }; render();
+  pushEdits();
+}
 
 function playlistCounts(){
   const m = new Map();
@@ -701,7 +835,11 @@ const A = {
   toLibrary(){ app.screen = 'library'; app.libMsg = null; app.edMsg = null; },
   editPl(name){ app.screen = 'playlist'; app.pl = name; app.plAll = false; app.plFilter = ''; window.scrollTo(0, 0); },
   plAll(){ app.plAll = !app.plAll; },
-  resetSong(k){ delete edits[k]; saveEdits(); applyEdits(); },
+  resetSong(k){ delete edits[k]; saveEdits(); applyEdits(); markDirty(k); },
+  syncConnect(){ connectSync(); return 'keep'; },
+  syncNow(){ pushEdits(); return 'keep'; },
+  syncForget(){ sync.url = ''; store.set('nd_sync', sync); app.edMsg = { kind: 'good', text: 'Disconnected. Edits stay on this device only.' }; },
+  copyScript(_, el){ const t = sheetScript(); try{ navigator.clipboard.writeText(t).then(() => { el.textContent = 'Copied'; }, () => selectNode('scriptBox')); }catch(e){ selectNode('scriptBox'); } return 'keep'; },
   exportCsv(){
     try{
       const blob = new Blob(['\ufeff' + libraryRows(',')], { type: 'text/csv;charset=utf-8' });
@@ -717,7 +855,7 @@ const A = {
     try{ navigator.clipboard.writeText(t).then(ok, bad); }catch(e){ bad(); }
     return 'keep';
   },
-  clearEdits(){ if (app.confirm !== 'edits'){ app.confirm = 'edits'; return 'keep'; } edits = {}; saveEdits(); applyEdits(); app.edMsg = { kind: 'good', text: 'All edits removed. Songs are back to what the Sheet or import says.' }; },
+  clearEdits(){ if (app.confirm !== 'edits'){ app.confirm = 'edits'; return 'keep'; } Object.keys(edits).forEach(k => pending.add(k)); edits = {}; saveEdits(); applyEdits(); savePending(); if (sync.url) pushEdits(); app.edMsg = { kind: 'good', text: 'All edits removed. Songs are back to what the Sheet or import says.' }; },
   resume(){ app.screen = 'game'; wake(); },
   addPlayer(){ const P = app.setup.players; if (P.length >= 5) return; const used = P.map(p => p.color); P.push({ name: 'Player ' + (P.length + 1), color: COLORS.find(c => !used.includes(c)) || COLORS[0] }); },
   removePlayer(i){ if (app.setup.players.length > 1) app.setup.players.splice(+i, 1); },
@@ -766,6 +904,7 @@ const A = {
   useSample(){ lib = { songs: importText(SAMPLE).songs, source: 'sample' }; saveLib(); app.libMsg = { kind: 'good', text: 'Sample library restored.' }; },
   copyHeader(_, el){ const t = 'artist\ttitle\tyear\tyoutube_link\tstart_sec\tplaylists'; try{ navigator.clipboard.writeText(t).then(() => { el.textContent = 'Copied'; }, () => selectHdr()); }catch(e){ selectHdr(); } return 'keep'; }
 };
+function selectNode(id){ const c = document.getElementById(id); if (!c) return; if (c.select){ c.focus(); c.select(); return; } const r = document.createRange(); r.selectNodeContents(c); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 function selectHdr(){ const c = document.getElementById('hdr'); if (!c) return; const r = document.createRange(); r.selectNodeContents(c); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 function doImport(add, textArg){
   const box = document.getElementById('pasteBox');
@@ -943,12 +1082,27 @@ function vLibrary(){
     <div class="row"><button class="btn ${app.confirm === 'hist' ? 'warn' : ''} small" data-act="resetHistory">${app.confirm === 'hist' ? 'Tap again to clear play history' : 'Reset play history (' + history.size + ' played)'}</button>
     ${lib.source !== 'sample' ? `<button class="btn ghost small" data-act="useSample">Switch back to sample library</button>` : ''}</div>
   </section>
-  <section class="panel"><h2>Your edits</h2>
-    ${nEd ? `<p class="small">${nEd} song${nEd === 1 ? '' : 's'} edited on this device. Edits stay when the Sheet reloads, but only on this device. To make them permanent, download or copy the full list and paste it over your Sheet's songs tab.</p>
-      <div class="row"><button class="btn small" data-act="exportCsv">Download CSV</button><button class="btn small" data-act="copyRows">Copy for Sheet</button>
-      <button class="btn ${app.confirm === 'edits' ? 'warn' : 'ghost'} small" data-act="clearEdits">${app.confirm === 'edits' ? 'Tap again to remove all edits' : 'Remove all edits'}</button></div>`
-    : `<p class="muted small">No edits yet. Changes you make in a playlist show up here, and you can copy them back into your Sheet.</p>`}
-    ${em ? `<div class="note ${em.kind === 'bad' ? 'bad' : 'good'}">${esc(em.text)}</div>` : ''}
+  <section class="panel"><h2>Save edits to your Sheet</h2>
+    ${sync.url ? `<p class="small"><b>Connected.</b> Every edit you make in a playlist is written into your Google Sheet, so all devices get it.</p>
+      <p class="syncstatus small ${syncState.kind}">${esc(syncState.text || (pending.size ? pending.size + ' change' + (pending.size === 1 ? '' : 's') + ' not saved to the Sheet yet.' : 'Everything is saved.'))}</p>
+      <div class="row">${pending.size ? `<button class="btn small" data-act="syncNow">Save now</button>` : ''}<button class="btn ghost small" data-act="syncForget">Disconnect</button></div>`
+    : `<p class="small">Connect your Sheet once and every edit you make here is written into it, so it's permanent and every device sees it. Takes about two minutes:</p>
+      <ol class="steps small">
+        <li>Open your songs Sheet and choose <b>Extensions → Apps Script</b>.</li>
+        <li>Delete what is in the editor, paste this script, and save. It contains your private key.
+          <div class="row" style="margin-top:6px"><button class="btn small" data-act="copyScript">Copy script</button></div>
+          <textarea id="scriptBox" class="script" readonly>${esc(sheetScript())}</textarea></li>
+        <li>Click <b>Deploy → New deployment</b>, pick type <b>Web app</b>, set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then <b>Deploy</b> and allow access when Google asks.</li>
+        <li>Copy the <b>Web app URL</b> and paste it here.</li>
+      </ol>
+      <label for="syncBox" class="small muted">Web app URL</label>
+      <input type="url" id="syncBox" class="sheet" placeholder="https://script.google.com/macros/s/…/exec">
+      <div class="row"><button class="btn primary" data-act="syncConnect">Connect</button></div>`}
+    ${em ? `<div class="note ${em.kind === 'bad' ? 'bad' : em.kind === 'good' ? 'good' : ''}">${esc(em.text)}</div>` : ''}
+    <p class="muted small">${nEd ? nEd + ' song' + (nEd === 1 ? ' has' : 's have') + ' edits the Sheet doesn\'t show yet. They clear themselves once the Sheet catches up (Google can take a few minutes to update the published copy).' : 'No edits waiting.'}
+      You can also download or copy the whole library with edits.</p>
+    <div class="row"><button class="btn ghost small" data-act="exportCsv">Download CSV</button><button class="btn ghost small" data-act="copyRows">Copy for Sheet</button>
+      ${nEd ? `<button class="btn ${app.confirm === 'edits' ? 'warn' : 'ghost'} small" data-act="clearEdits">${app.confirm === 'edits' ? 'Tap again to undo all edits' : 'Undo all edits'}</button>` : ''}</div>
   </section>
   <section class="panel"><h2>Load from your Google Sheet</h2>
     <p class="small">In the Sheet: File → Share → Publish to web, pick the songs tab and <b>Comma-separated values (.csv)</b>, then paste the link here. The app remembers it and re-reads the Sheet every time it opens.</p>
@@ -1005,6 +1159,7 @@ function vPlaylist(){
   return `<div class="page-head"><h1>${esc(p)}</h1><button class="btn ghost small" data-act="toLibrary">Back to playlists</button></div>
   <section class="panel">
     <p class="small"><b id="plOn">${on}</b> songs play in this playlist. Untick a song to leave it out. Changes save as you go. Year, link and start time apply to the song in every playlist.</p>
+    <p class="syncstatus small ${syncState.kind}">${esc(sync.url ? syncState.text : 'Edits are saved on this device only. Connect your Sheet on the Playlists page to make them permanent.')}</p>
     <div class="efilter"><input type="search" id="plFilter" placeholder="Find a song, artist or year" value="${esc(app.plFilter || '')}" aria-label="Find a song">
       <button class="btn ${app.plAll ? 'on' : 'ghost'} small" data-act="plAll" aria-pressed="${!!app.plAll}">${app.plAll ? 'Showing all songs' : 'Add songs from other playlists'}</button></div>
     <div class="erows">${list.map(row).join('') || '<p class="muted">No songs.</p>'}</div>
@@ -1192,7 +1347,7 @@ document.addEventListener('click', e => {
   const res = A[name](el.dataset.v, el);
   if (res !== 'keep' && before === app.confirm) app.confirm = null;
   if (name !== 'menu' && name !== 'sound' && name !== 'endGame' && name !== 'testHorn' && name !== 'copyHeader') app.menu = false;
-  if (name === 'copyHeader') return;
+  if (name === 'copyHeader' || name === 'copyScript' || name === 'syncNow') return;
   render();
 });
 function filterRows(){
@@ -1270,6 +1425,7 @@ window.addEventListener('pagehide', () => store.set('nd_screen', app.screen));
 setInterval(() => store.set('nd_screen', app.screen), 4000);
 boot();
 if (sheetUrl) loadSheet(true);
+if (sync.url && pending.size) setTimeout(pushEdits, 4000);
 })();
 </script>
 </body>
