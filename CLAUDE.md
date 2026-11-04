@@ -9,6 +9,7 @@ Private use only (one family/friend group). Not published, not commercial.
 ## Current state
 
 - The whole game is one self-contained file: `index.html` (plain HTML/CSS/JavaScript, no framework, no build step).
+- Hosted on GitHub Pages: https://jerooo-byte.github.io/dig-the-year/ (repo jerooo-byte/dig-the-year, branch main, root).
 - External script: `qrcodejs` 1.0.0 from cdnjs. Fonts: Unbounded + DM Sans from Google Fonts.
 - v1 was built and published as a private claude.ai artifact. The artifact sandbox blocked fetching other sites, so songs are imported by **pasting rows or uploading a CSV**, not read live from Google Sheets.
 - Artifact-only code (`window.claude.hot` hooks, `window.__nd` debug export, claude meta tag) was removed on 2026-11-04 for standalone hosting.
@@ -19,7 +20,7 @@ Private use only (one family/friend group). Not published, not commercial.
 
 1. Put the project in a GitHub repo and host it on GitHub Pages (public repo, free). Decided 2026-11-04: private link for the group, not a public launch.
 2. ~~Google Sheet CSV link loading~~ done 2026-11-04.
-3. Pick the real airhorn sound (currently synthesized in Web Audio as a placeholder). User will choose the sound.
+3. ~~Airhorn~~ done 2026-11-04: `airhorn.mp3` (Pixabay "DJ airhorn sound", freesound_community, Pixabay content licence) plays on a correct answer; the synthesized horn is the fallback.
 4. Decide edge case: when 2+ players pass 10 cards in the same round but with different counts (e.g. 11 vs 10), v1 gives the win to the higher count. Ask the user whether any two players at 10+ should go to sudden death instead.
 
 ## Game spec (confirmed with the user — do not change without asking)

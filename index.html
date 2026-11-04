@@ -697,8 +697,23 @@ async function loadSheet(quiet){
 
 /* ---------- sound ---------- */
 let actx = null;
+/* Real airhorn recording (airhorn.mp3, Pixabay content licence: free to use, no credit needed).
+   Falls back to the synthesized horn if the file is missing or the browser refuses to play it. */
+let hornAudio = null;
+try{ hornAudio = new Audio('airhorn.mp3'); hornAudio.preload = 'auto'; }catch(e){ hornAudio = null; }
 function horn(force){
   if (!app.sound && !force) return;
+  if (hornAudio && !hornAudio.error){
+    try{
+      hornAudio.currentTime = 0;
+      const p = hornAudio.play();
+      if (p && p.catch) p.catch(() => synthHorn());
+      return;
+    }catch(e){}
+  }
+  synthHorn();
+}
+function synthHorn(){
   try{
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
