@@ -4,7 +4,7 @@ Renamed from "Needle Drop" on 2026-11-04. The folder was renamed to dig-the-year
 
 A private, digital version of the Hitster music-timeline party game. One device (iPad, laptop or phone) is the board and is passed between players. A second phone plays the music face down: it scans a QR code shown on the board and opens the song in the YouTube app.
 
-Private use only (one family/friend group). Not published, not commercial.
+Private use only (one family/friend group), shared by link. Not commercial.
 
 ## Current state
 
@@ -18,10 +18,12 @@ Private use only (one family/friend group). Not published, not commercial.
 
 ## Next planned steps
 
-1. Put the project in a GitHub repo and host it on GitHub Pages (public repo, free). Decided 2026-11-04: private link for the group, not a public launch.
+1. ~~GitHub Pages hosting~~ done 2026-11-04 (private link for the group, not a public launch).
 2. ~~Google Sheet CSV link loading~~ done 2026-11-04.
 3. ~~Airhorn~~ done 2026-11-04: `airhorn.mp3` (the user's own "DJ Airhorn Sound Effect" file, source unknown, trimmed to the first 3 s) plays on a correct answer; the synthesized horn is the fallback.
-4. Decide edge case: when 2+ players pass 10 cards in the same round but with different counts (e.g. 11 vs 10), v1 gives the win to the higher count. Ask the user whether any two players at 10+ should go to sudden death instead.
+4. ~~End-of-round edge case~~ decided 2026-11-04: when 2+ players pass 10 cards in the same round with different counts (e.g. 11 vs 10), the higher count wins. Sudden death only for an exact tie at the top.
+
+No open steps left from v1.
 
 ## Game spec (confirmed with the user — do not change without asking)
 
@@ -55,7 +57,8 @@ Private use only (one family/friend group). Not published, not commercial.
 ### 5. Winning
 - First to **10 cards**.
 - When someone reaches 10, **finish the round** so everyone has had the same number of turns.
-- Tie at the top: **sudden death** — each tied player gets one more song, no tokens or challenges; if exactly one is correct they win, otherwise repeat (players who were correct continue if 2+ were correct). Tied players DJ for each other.
+- If several players reach 10+ in the same round, the highest count wins (11 beats 10).
+- Exact tie at the top: **sudden death** — each tied player gets one more song, no tokens or challenges; if exactly one is correct they win, otherwise repeat (players who were correct continue if 2+ were correct). Tied players DJ for each other.
 - If the songs run out: most cards wins, same tie-break.
 
 ### 6. Song library and playlists
@@ -80,7 +83,7 @@ Private use only (one family/friend group). Not published, not commercial.
 ### 8. Extras
 - Auto-save and resume a game in progress.
 - "Undo last action" button.
-- Airhorn sound on a correct answer (sound to be chosen later). No animations needed.
+- Airhorn sound on a correct answer (`airhorn.mp3`). No animations needed.
 
 ## Working conventions
 - Keep it a single static site with no backend unless the user asks.
