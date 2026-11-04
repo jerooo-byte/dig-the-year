@@ -697,7 +697,7 @@ async function loadSheet(quiet){
 
 /* ---------- sound ---------- */
 let actx = null;
-/* Real airhorn recording (airhorn.mp3, Pixabay content licence: free to use, no credit needed).
+/* Real airhorn recording (airhorn.mp3, supplied by the user).
    Falls back to the synthesized horn if the file is missing or the browser refuses to play it. */
 let hornAudio = null;
 try{ hornAudio = new Audio('airhorn.mp3'); hornAudio.preload = 'auto'; }catch(e){ hornAudio = null; }
