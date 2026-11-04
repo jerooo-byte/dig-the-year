@@ -724,6 +724,9 @@ const A = {
   exportCsv(key){ const l = allLists().find(x => x.key === key); if (l) downloadCsv(l.name, l.songs); },
   exportDraft(){ const D = app.draft; downloadCsv(((document.getElementById('dName') || {}).value || D.name || 'playlist').trim(), D.songs.filter(x => x.on)); },
   recheck(){ if (app.adminPw && app.draft) recheckYears(app.draft); return 'keep'; },
+  mergeOpen(){ app.merge = app.merge ? null : { name: '', keys: [] }; app.mergeMsg = null; },
+  mergePick(key){ const M = app.merge; M.keys = M.keys.includes(key) ? M.keys.filter(k => k !== key) : [...M.keys, key]; },
+  mergeGo(){ mergeLists(); },
   recheckSel(){ const D = app.draft; if (app.adminPw && D && D.songs.some(x => x.on && x.sel)) recheckYears(D, true); return 'keep'; },
   selAll(v){ app.draft.songs.forEach(x => { if (x.on) x.sel = v === '1'; }); saveDraft(); },
   playSel(v){ app.draft.songs.forEach(x => { if (x.on && x.sel) x.off = v !== '1'; }); saveDraft(); },
@@ -761,6 +764,35 @@ function downloadCsv(name, songs){
     a.download = file; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }catch(e){ app.libMsg = { kind: 'bad', text: 'This browser blocked the download.' }; render(); }
+}
+/* Admin: merge two or more playlists into a new draft (the originals are untouched).
+   A song counts as the same if it has the same YouTube video, or the same artist and title.
+   The first playlist picked wins on a duplicate; if the years differ the song is flagged to check,
+   and it plays in games if any of the merged copies did. Nothing is stored until Save. */
+function mergeLists(){
+  const M = app.merge; if (!M) return;
+  const name = ((document.getElementById('mergeName') || {}).value || '').trim(); M.name = name;
+  if (!name){ app.mergeMsg = 'First type a name for the new playlist.'; return; }
+  const lists = M.keys.map(k => allLists().find(l => l.key === k)).filter(Boolean);
+  if (lists.length < 2){ app.mergeMsg = 'Pick at least two playlists to merge.'; return; }
+  const key = x => (x.artist + '|' + x.title).toLowerCase().replace(/[^\p{L}\p{N}|]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  const out = [], byId = new Map(), byName = new Map(); let dupes = 0;
+  lists.forEach(l => l.songs.forEach(x => {
+    const hit = byId.get(x.id) || byName.get(key(x));
+    if (hit){
+      dupes++;
+      if (!x.off) hit.off = false;
+      if (x.year !== hit.year && !hit.years.includes(x.year + ' (' + l.name + ')')) hit.years.push(x.year + ' (' + l.name + ')');
+      return;
+    }
+    const s = { id: x.id, artist: x.artist, title: x.title, year: x.year, start: x.start || 0, off: !!x.off, on: true, note: '', years: [x.year + ' (' + l.name + ')'] };
+    out.push(s); byId.set(x.id, s); byName.set(key(x), s);
+  }));
+  out.forEach(s => { if (s.years.length > 1) s.note = 'Years differ between the merged playlists: ' + s.years.join(', ') + '. Kept the first.'; delete s.years; });
+  app.draftMsg = { kind: 'good', text: 'Merged ' + plural(out.length, 'song') + ' from ' + lists.map(l => '"' + l.name + '"').join(', ') + (dupes ? '. ' + plural(dupes, 'duplicate') + ' dropped.' : '.') + ' Nothing is saved until you press Save.' };
+  app.draft = { name, songs: out, stage: 'review', main: true };
+  app.flagView = ''; app.merge = null; app.mergeMsg = null; saveDraft();
+  app.screen = 'import'; window.scrollTo(0, 0);
 }
 /* The name typed in "New playlist"; asks for it if empty. */
 function newName(){
@@ -922,7 +954,14 @@ function vLibrary(){
        ${delBtn('sDel', l.list.id, 'sdel:' + l.list.id)}`;
   const L = allLists(), mains = L.filter(l => l.kind === 'admin'), players = L.filter(l => l.kind === 'shared'), local = L.filter(l => l.kind === 'mine');
   return `<div class="page-head"><h1>Playlists</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
-  ${ad ? `<div class="note good row" style="justify-content:space-between">Admin mode: you can edit, delete and promote playlists. <button class="btn ghost small" data-act="adminLogout">Leave admin mode</button></div>` : ''}
+  ${ad ? `<div class="note good row" style="justify-content:space-between">Admin mode: you can edit, delete and promote playlists. <span class="row"><button class="btn ghost small" data-act="mergeOpen">${app.merge ? 'Close merge' : 'Merge playlists'}</button><button class="btn ghost small" data-act="adminLogout">Leave admin mode</button></span></div>
+    ${app.merge ? `<section class="panel"><h2>Merge playlists</h2>
+      <label for="mergeName" class="small muted">1. Name of the new playlist</label>
+      <input type="text" id="mergeName" class="sheet" maxlength="60" value="${esc(app.merge.name)}" placeholder="e.g. Best of everything">
+      <p class="small muted">2. Pick two or more playlists. They stay as they are; the new one gets their songs without duplicates.</p>
+      <div class="chips">${allLists().map(l => { const on = app.merge.keys.includes(l.key); return `<button class="chip ${on ? 'sel' : ''}" data-act="mergePick" data-v="${esc(l.key)}" aria-pressed="${on}">${esc(l.name)} <span class="n">${l.songs.length}</span></button>`; }).join('')}</div>
+      <div class="row"><button class="btn primary" data-act="mergeGo" ${app.merge.keys.length >= 2 ? '' : 'disabled'}>Merge ${app.merge.keys.length >= 2 ? app.merge.keys.length + ' playlists' : ''}</button></div>
+      ${app.mergeMsg ? `<div class="note bad">${esc(app.mergeMsg)}</div>` : ''}</section>` : ''}` : ''}
   ${m ? `<div class="note ${m.kind}">${esc(m.text)}</div>` : ''}
   <section class="panel"><h2>Main playlists</h2>
     <p class="muted small">Always available. Only the admin can change these.</p>
@@ -1283,6 +1322,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('input', e => {
   if (e.target.id === 'dName' && app.draft){ app.draft.name = e.target.value; return; }
   if (e.target.id === 'newName'){ app.newName = e.target.value; return; }
+  if (e.target.id === 'mergeName' && app.merge){ app.merge.name = e.target.value; return; }
   if (e.target.id === 'ytUrl'){ app.ytUrl = e.target.value; return; }
   const i = e.target.dataset && e.target.dataset.name;
   if (i != null){ app.setup.players[+i].name = e.target.value; save(); }
