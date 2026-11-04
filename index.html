@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dig the Year</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Unbounded:wght@500;700;800&display=swap">
+<style>
+/* Layout: one-screen game table — scoreboard bar, a "stage" panel for the current step, the active player's timeline below. Deliberately single dark "stage" look. */
+:root{
+  color-scheme: dark;
+  --bg:#141127; --bg-2:#1c1834; --surface:#25203f; --surface-2:#2f2950; --line:#3d3666;
+  --fg:#f5f1ff; --muted:#a8a2cc; --accent:#ffb547; --accent-ink:#2a1d03;
+  --good:#3ddc97; --bad:#ff6b6b; --card-ink:#17132b;
+  --display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --body:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --r:14px;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+#app{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Buttons */
+.btn{appearance:none;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:10px 18px;font-weight:700;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;text-align:center}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.06)}
+.btn.ghost{background:transparent}
+.btn.big{min-height:56px;padding:14px 26px;font-size:17px}
+.btn.small{min-height:36px;padding:6px 14px;font-size:14px}
+.btn.warn{border-color:var(--bad);color:var(--bad);background:transparent}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.on{background:var(--fg);color:var(--card-ink);border-color:var(--fg)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tok{display:inline-block;width:.8em;height:.8em;border-radius:50%;background:var(--accent);box-shadow:inset 0 0 0 2px #0003;vertical-align:-.05em}
+
+/* Home */
+.home{display:flex;flex-direction:column;gap:28px;padding-top:6vh}
+.hero{display:flex;gap:32px;align-items:center;flex-wrap:wrap}
+.hero h1{font-size:clamp(44px,9vw,96px);font-weight:800;letter-spacing:-.02em;line-height:.95}
+.lede{max-width:52ch;color:var(--muted);font-size:18px;margin-top:14px}
+.disc{width:clamp(120px,22vw,220px);aspect-ratio:1;max-width:100%;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 50% 50%,var(--accent) 0 17%,var(--card-ink) 17.5% 19%,transparent 19.5%),
+  repeating-radial-gradient(circle at 50% 50%,#0c0a19 0 2px,#221d3d 2px 4px);
+  box-shadow:0 20px 50px #0008, inset 0 0 0 6px #0c0a19;animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.disc{animation:none}}
+.home-actions{display:flex;flex-wrap:wrap;gap:12px}
+
+/* Panels */
+.panel{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{font-size:20px}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.page-head h1{font-size:clamp(26px,4vw,36px)}
+
+/* Setup */
+.prow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.prow input[type=text]{flex:1 1 180px;min-width:0;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:inherit;padding:10px 12px;min-height:44px}
+.swatches{display:flex;gap:6px}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;background:var(--c);cursor:pointer;padding:0}
+.sw.sel{border-color:var(--fg);box-shadow:0 0 0 2px var(--bg) inset}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;font-weight:500;min-height:40px;display:inline-flex;gap:8px;align-items:center}
+.chip .n{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.chip.sel{background:var(--fg);color:var(--card-ink);border-color:var(--fg)}
+.chip.sel .n{color:#4b4570}
+.note{border-radius:10px;padding:12px 14px;background:var(--surface);border-left:4px solid var(--accent);font-size:15px}
+.note.bad{border-left-color:var(--bad)}
+.note.good{border-left-color:var(--good)}
+
+/* Library */
+input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:14px/1.4 inherit;padding:12px;box-sizing:border-box;margin:4px 0 10px}
+textarea{width:100%;min-height:150px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;color:var(--fg);font:14px/1.4 ui-monospace,Menlo,monospace;padding:12px;resize:vertical;box-sizing:border-box}
+code.hdr{display:block;background:var(--surface);border-radius:8px;padding:10px 12px;font-size:13px;overflow-x:auto;white-space:nowrap}
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.plist div{background:var(--surface);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;gap:8px}
+.plist span{color:var(--muted);font-variant-numeric:tabular-nums}
+ul.problems{margin:0;padding-left:20px;font-size:14px;color:var(--muted);max-height:220px;overflow:auto}
+input[type=file]{font-size:14px;color:var(--muted);max-width:100%}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.brand{font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-.01em}
+.score{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 auto;justify-content:center}
+.pchip{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid transparent;border-radius:999px;padding:6px 12px 6px 8px;font-size:14px}
+.pchip.active{border-color:var(--c)}
+.pchip.dj{border-style:dashed;border-color:var(--muted)}
+.pchip .dot{width:14px;height:14px}
+.pchip b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip .cards{font-family:var(--display);font-size:13px;font-variant-numeric:tabular-nums}
+.pchip .tk{color:var(--muted);font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:4px}
+.tools{display:flex;gap:8px;position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:20;min-width:210px;box-shadow:0 14px 40px #0009}
+.menu .btn{justify-content:flex-start;border-radius:10px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--c);display:inline-block;flex:none}
+.badge{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--bad);color:var(--card-ink)}
+
+/* Stage */
+.stage{background:var(--bg-2);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:16px}
+.stage-head{display:flex;flex-direction:column;gap:6px}
+.stage-head h2{font-size:clamp(22px,3vw,30px);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.stage-head h2 .dot{width:18px;height:18px}
+.stage-body{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.stage-col{display:flex;flex-direction:column;gap:12px;flex:1 1 280px;min-width:0}
+.qrbox{background:#fff;border-radius:14px;padding:14px;width:248px;max-width:100%;box-sizing:border-box;flex:none}
+.qrbox #qr img,.qrbox #qr canvas{display:block;width:100%;height:auto}
+.url{font-size:12px;color:var(--muted);word-break:break-all;user-select:all}
+.block{background:var(--surface);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.block h3{font-family:var(--body);font-size:16px;font-weight:700}
+.outcome{font-family:var(--display);font-size:clamp(22px,3.2vw,32px);font-weight:800}
+.outcome.good{color:var(--good)} .outcome.bad{color:var(--bad)}
+.lines{display:flex;flex-direction:column;gap:4px;color:var(--muted)}
+.lines b{color:var(--fg)}
+
+/* Board + timeline */
+.board{display:flex;flex-direction:column;gap:10px;min-width:0}
+.board-head{display:flex;align-items:center;gap:10px}
+.board-head h2{font-size:18px}
+.board-head .count{margin-left:auto;font-family:var(--display);font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.timeline{display:flex;align-items:stretch;overflow-x:auto;padding:12px 4px 16px;min-height:calc(var(--ch) + 28px);
+  --cw:clamp(66px,7.2vw,108px);--ch:calc(var(--cw)*1.38);--sw:22px;
+  background:linear-gradient(transparent calc(50% - 1px),var(--line) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px));scrollbar-width:thin}
+.ycard{flex:none;width:var(--cw);height:var(--ch);border-radius:12px;background:var(--c);color:var(--card-ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 6px;box-sizing:border-box;text-align:center;box-shadow:0 6px 16px #0006;position:relative;overflow:hidden}
+.ycard .yr{font-family:var(--display);font-weight:800;font-size:calc(var(--cw)*.27);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ycard .meta{display:flex;flex-direction:column;font-size:11px;line-height:1.2;min-width:0;width:100%}
+.ycard .meta b,.ycard .meta span{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ycard.new{outline:4px solid var(--fg);outline-offset:3px}
+.ycard.mystery{background:var(--surface-2);color:var(--fg);border:2px dashed var(--accent);cursor:grab;touch-action:none;user-select:none}
+.ycard.mystery.placed{border-style:solid}
+.ycard.mystery.locked{cursor:default;border-color:var(--muted)}
+.ycard.mystery.lifting{opacity:.35}
+.ycard.ghost{position:fixed;z-index:50;pointer-events:none;transform:rotate(-4deg) scale(1.06);box-shadow:0 18px 40px #000a;opacity:.95}
+.vinyl{width:calc(var(--cw)*.66);aspect-ratio:1;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:repeating-radial-gradient(circle at 50% 50%,#0c0a19 0 1.5px,#29234a 1.5px 3px)}
+.vinyl .label{width:42%;aspect-ratio:1;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:calc(var(--cw)*.14)}
+.ycard.marker{background:transparent;border:3px dashed var(--c);color:var(--fg);box-shadow:none;font-weight:700;font-size:12px}
+.ycard.marker .vinyl .label{background:var(--c)}
+.slot{flex:none;width:var(--sw);border:0;padding:0;background:transparent;position:relative;cursor:default}
+.slot::after{content:"";position:absolute;inset:8px 9px;border-radius:4px;background:transparent}
+.slot.live{cursor:pointer}
+.slot.live::after{background:var(--line)}
+.slot.live:hover::after,.slot.hot::after{background:var(--accent);inset:0 7px}
+.tray{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.tray .ycard{--cw:96px;--ch:132px}
+
+/* Ready-to-play card in stage (reveal) */
+.bigcard{--cw:140px;--ch:190px}
+.bigcard .yr{font-size:40px}
+.bigcard .meta{font-size:13px}
+
+/* Game over */
+.standings{display:flex;flex-direction:column;gap:8px}
+.standings div{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:12px;padding:12px 16px}
+.standings .pts{margin-left:auto;font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
+.win-title{font-size:clamp(32px,6vw,60px);font-weight:800}
+
+/* Phone: vertical timeline */
+@media (max-width:699px){
+  .stage{padding:16px}
+  .timeline{flex-direction:column;overflow-x:visible;padding:4px 0;min-height:0;background:linear-gradient(90deg,transparent calc(50% - 1px),var(--line) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px));--cw:100%;--ch:58px;--sw:100%}
+  .timeline .ycard{flex-direction:row;justify-content:flex-start;gap:14px;padding:6px 14px;text-align:left;width:100%}
+  .timeline .ycard .yr{font-size:24px;min-width:3.2ch}
+  .timeline .ycard .meta{font-size:13px}
+  .timeline .ycard .meta b,.timeline .ycard .meta span{-webkit-line-clamp:1}
+  .timeline .vinyl{width:42px}
+  .timeline .vinyl .label{font-size:11px}
+  .slot{height:22px;width:100%}
+  .slot::after{inset:9px 8px}
+  .slot.live:hover::after,.slot.hot::after{inset:4px 0}
+  .ycard.ghost{transform:scale(1.03)}
+  .score{justify-content:flex-start}
+  .pchip b{max-width:8ch}
+}
+</style>
+
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(() => {
+'use strict';
+const TARGET = 10, START_TOKENS = 2, MAX_TOKENS = 5, SKIP_COST = 1, CHALLENGE_COST = 1, BUY_COST = 3;
+const COLORS = ['#ff6b6b','#ffc145','#3ddc97','#4cc9f0','#b59cff','#ff7ac6'];
+const COLOR_NAMES = ['Coral','Yellow','Mint','Sky','Violet','Pink'];
+
+const SAMPLE = `artist	title	year	youtube_link	start_sec	playlists
+The Sugarhill Gang	Rapper's Delight	1979	https://youtu.be/mcCK99wHrk0	0	Greatest Hip-Hop
+Kurtis Blow	The Breaks	1980	https://youtu.be/ulBhSNEkMrM	0	Greatest Hip-Hop
+Funky 4 + 1	That's the Joint	1980	https://youtu.be/OKbPzGUihG0	0	Greatest Hip-Hop
+Grandmaster Flash	The Adventures of Grandmaster Flash on the Wheels of Steel	1981	https://youtu.be/F3unhUrwp68	0	Greatest Hip-Hop
+Grandmaster Flash & The Furious Five	The Message	1982	https://youtu.be/PobrSpMwKk4	0	Greatest Hip-Hop
+Afrika Bambaataa & The Soulsonic Force	Planet Rock	1982	https://youtu.be/SqS8X-5aIns	0	Greatest Hip-Hop
+Grandmaster Flash & Melle Mel	White Lines (Don't Don't Do It)	1983	https://youtu.be/DwRXI-y6M9o	0	Greatest Hip-Hop
+Run-DMC	Sucker M.C.'s	1983	https://youtu.be/iOKMWSR2Aio	0	Greatest Hip-Hop
+Whodini	Freaks Come Out at Night	1984	https://youtu.be/FxwrLLlQwBw	0	Greatest Hip-Hop
+UTFO	Roxanne, Roxanne	1984	https://youtu.be/xEjISINkR24	0	Greatest Hip-Hop
+LL Cool J	Rock the Bells	1985	https://youtu.be/5xB727Efeo0	0	Greatest Hip-Hop
+Run-DMC ft. Aerosmith	Walk This Way	1986	https://youtu.be/4B_UYYPb-Gk	0	Greatest Hip-Hop
+Beastie Boys	(You Gotta) Fight for Your Right (To Party!)	1986	https://youtu.be/eBShN8qT4lk	0	Greatest Hip-Hop
+Run-DMC	It's Tricky	1986	https://youtu.be/l-O5IHVhWj0	0	Greatest Hip-Hop
+Run-DMC	My Adidas	1986	https://youtu.be/Qx0huz6TiLo	0	Greatest Hip-Hop
+Boogie Down Productions	South Bronx	1986	https://youtu.be/bcxv8WsT9JA	0	Greatest Hip-Hop
+Beastie Boys	Paul Revere	1986	https://youtu.be/kdfF0cOC50w	0	Greatest Hip-Hop
+Eric B. & Rakim	Paid in Full	1987	https://youtu.be/E7t8eoA_1jQ	0	Greatest Hip-Hop
+Salt-N-Pepa	Push It	1987	https://youtu.be/vCadcBR95oU	0	Greatest Hip-Hop
+Public Enemy	Rebel Without a Pause	1987	https://youtu.be/-fN5RX15Zhw	0	Greatest Hip-Hop
+Eric B. & Rakim	I Know You Got Soul	1987	https://youtu.be/CSxGTh7Ad4E	0	Greatest Hip-Hop
+Big Daddy Kane	Ain't No Half-Steppin'	1988	https://youtu.be/IVCxbzPmOQQ	0	Greatest Hip-Hop
+Rob Base & DJ E-Z Rock	It Takes Two	1988	https://youtu.be/phOW-CZJWT0	0	Greatest Hip-Hop
+N.W.A	Straight Outta Compton	1988	https://youtu.be/TMZi25Pq3T8	0	Greatest Hip-Hop
+Slick Rick	Children's Story	1988	https://youtu.be/HjNTu8jdukA	0	Greatest Hip-Hop
+MC Lyte	Paper Thin	1988	https://youtu.be/1POru2g5mQU	0	Greatest Hip-Hop
+DJ Jazzy Jeff & The Fresh Prince	Parents Just Don't Understand	1988	https://youtu.be/jW3PFC86UNI	0	Greatest Hip-Hop
+Tone Lōc	Wild Thing	1988	https://youtu.be/N_abDVj0qkQ	0	Greatest Hip-Hop
+Public Enemy	Fight the Power	1989	https://youtu.be/mmo3HFa2vjg	0	Greatest Hip-Hop
+De La Soul	Me Myself and I	1989	https://youtu.be/a0ZhDbZIbiM	0	Greatest Hip-Hop
+Young MC	Bust a Move	1989	https://youtu.be/0m3X9MLDRKw	0	Greatest Hip-Hop
+Biz Markie	Just a Friend	1989	https://youtu.be/9aofoBrFNdg	0	Greatest Hip-Hop
+MC Hammer	U Can't Touch This	1990	https://youtu.be/otCpCn0l4Wo	0	Greatest Hip-Hop
+LL Cool J	Mama Said Knock You Out	1990	https://youtu.be/vimZj8HW0Kg	0	Greatest Hip-Hop
+Digital Underground	The Humpty Dance	1990	https://youtu.be/PBsjggc5jHM	0	Greatest Hip-Hop
+A Tribe Called Quest	Can I Kick It?	1990	https://youtu.be/O3pyCGnZzYA	0	Greatest Hip-Hop
+A Tribe Called Quest	Scenario	1991	https://youtu.be/Q6TLWqn82J4	0	Greatest Hip-Hop
+Naughty by Nature	O.P.P.	1991	https://youtu.be/7f7FuDagYLU	0	Greatest Hip-Hop
+Black Sheep	The Choice Is Yours	1991	https://youtu.be/K9F5xcpjDMU	0	Greatest Hip-Hop
+Cypress Hill	How I Could Just Kill a Man	1991	https://youtu.be/Yg-RIOATCbU	0	Greatest Hip-Hop
+Geto Boys	Mind Playing Tricks on Me	1991	https://youtu.be/IJtHdkyo0hc	0	Greatest Hip-Hop
+House of Pain	Jump Around	1992	https://youtu.be/XhzpxjuwZy0	0	Greatest Hip-Hop
+Sir Mix-a-Lot	Baby Got Back	1992	https://youtu.be/X53ZSxkQ3Ho	0	Greatest Hip-Hop
+Ice Cube	It Was a Good Day	1992	https://youtu.be/h4UqMyldS7Q	0	Greatest Hip-Hop
+Dr. Dre ft. Snoop Doggy Dogg	Nuthin' but a 'G' Thang	1992	https://youtu.be/5-q5GDT1nxU	0	Greatest Hip-Hop
+Pete Rock & CL Smooth	They Reminisce Over You (T.R.O.Y.)	1992	https://youtu.be/k6mdRv0ZdR8	0	Greatest Hip-Hop
+The Pharcyde	Passin' Me By	1992	https://youtu.be/a-mAK3uB2_0	0	Greatest Hip-Hop
+Arrested Development	Tennessee	1992	https://youtu.be/6VCdJyOAQYM	0	Greatest Hip-Hop
+Kris Kross	Jump	1992	https://youtu.be/010KyIQjkTk	0	Greatest Hip-Hop
+Wu-Tang Clan	C.R.E.A.M.	1993	https://youtu.be/PBwAxmrE194	0	Greatest Hip-Hop
+Snoop Doggy Dogg	Gin and Juice	1993	https://youtu.be/fWCZse1iwE0	0	Greatest Hip-Hop
+Cypress Hill	Insane in the Brain	1993	https://youtu.be/RijB8wnJCN0	0	Greatest Hip-Hop
+Souls of Mischief	93 'til Infinity	1993	https://youtu.be/fXJc2NYwHjw	0	Greatest Hip-Hop
+A Tribe Called Quest	Electric Relaxation	1993	https://youtu.be/WHRnvjCkTsw	0	Greatest Hip-Hop
+Snoop Doggy Dogg	Who Am I? (What's My Name?)	1993	https://youtu.be/2soGJXQAQec	0	Greatest Hip-Hop
+2Pac	I Get Around	1993	https://youtu.be/9_bQHQxKFQY	0	Greatest Hip-Hop
+The Notorious B.I.G.	Juicy	1994	https://youtu.be/_JZom_gVfuw	0	Greatest Hip-Hop
+Nas	N.Y. State of Mind	1994	https://youtu.be/hI8A14Qcv68	0	Greatest Hip-Hop
+Warren G ft. Nate Dogg	Regulate	1994	https://youtu.be/1plPyJdXKIY	0	Greatest Hip-Hop
+Gang Starr	Mass Appeal	1994	https://youtu.be/y9lNbNGbo24	0	Greatest Hip-Hop
+Nas	The World Is Yours	1994	https://youtu.be/e5PnuIRnJW8	0	Greatest Hip-Hop
+2Pac	Dear Mama	1995	https://youtu.be/Mb1ZvUDvLDY	0	Greatest Hip-Hop
+Mobb Deep	Shook Ones, Pt. II	1995	https://youtu.be/yoYZf-lBF_U	0	Greatest Hip-Hop
+Coolio ft. L.V.	Gangsta's Paradise	1995	https://youtu.be/SQCSxqScSVQ	0	Greatest Hip-Hop
+2Pac ft. Dr. Dre	California Love	1995	https://youtu.be/omfz62qu_Bc	0	Greatest Hip-Hop
+Method Man ft. Mary J. Blige	I'll Be There for You / You're All I Need to Get By	1995	https://youtu.be/0wD8rVuOOG0	0	Greatest Hip-Hop
+Ol' Dirty Bastard	Shimmy Shimmy Ya	1995	https://youtu.be/h2zgB93KANE	0	Greatest Hip-Hop
+Raekwon	Ice Cream	1995	https://youtu.be/jgh10of6DKA	0	Greatest Hip-Hop
+Luniz	I Got 5 on It	1995	https://youtu.be/GEzTT0qvOcM	0	Greatest Hip-Hop
+Bone Thugs-N-Harmony	Tha Crossroads	1996	https://youtu.be/y7_eA6NZ9VQ	0	Greatest Hip-Hop
+Fugees	Killing Me Softly With His Song	1996	https://youtu.be/oKOtzIo-uYw	0	Greatest Hip-Hop
+Nas ft. Lauryn Hill	If I Ruled the World (Imagine That)	1996	https://youtu.be/5MfeTYdZM8c	0	Greatest Hip-Hop
+Busta Rhymes	Woo Hah!! Got You All in Check	1996	https://youtu.be/EQzvQO2LcA4	0	Greatest Hip-Hop
+OutKast	Elevators (Me & You)	1996	https://youtu.be/uqB_UVlhlPA	0	Greatest Hip-Hop
+The Notorious B.I.G.	Hypnotize	1997	https://youtu.be/glEiPXAYE-U	0	Greatest Hip-Hop
+Missy Elliott	The Rain (Supa Dupa Fly)	1997	https://youtu.be/hHcyJPTTn9w	0	Greatest Hip-Hop
+Puff Daddy ft. Faith Evans & 112	I'll Be Missing You	1997	https://youtu.be/NKMtZm2YuBE	0	Greatest Hip-Hop
+The Notorious B.I.G. ft. Puff Daddy & Mase	Mo Money Mo Problems	1997	https://youtu.be/gUhRKVIjJtw	0	Greatest Hip-Hop
+Will Smith	Men in Black	1997	https://youtu.be/fiBLgEx6svA	0	Greatest Hip-Hop
+Lauryn Hill	Doo Wop (That Thing)	1998	https://youtu.be/T6QKqFPRZSA	0	Greatest Hip-Hop
+Jay-Z	Hard Knock Life (Ghetto Anthem)	1998	https://youtu.be/lpZgKI97K1M	0	Greatest Hip-Hop
+OutKast	Rosa Parks	1998	https://youtu.be/drsQLEU0N1Y	0	Greatest Hip-Hop
+DMX	Ruff Ryders' Anthem	1998	https://youtu.be/T-LkswYvhwM	0	Greatest Hip-Hop
+Busta Rhymes	Gimme Some More	1998	https://youtu.be/un3NkWnHl9Q	0	Greatest Hip-Hop
+Big Pun ft. Joe	Still Not a Player	1998	https://youtu.be/7Xue-dOOLiY	0	Greatest Hip-Hop
+2Pac ft. Talent	Changes	1998	https://youtu.be/eXvBjCO19QY	0	Greatest Hip-Hop
+Juvenile ft. Mannie Fresh & Lil Wayne	Back That Azz Up	1998	https://youtu.be/WpQrAbkM3dI	0	Greatest Hip-Hop
+Eminem	My Name Is	1999	https://youtu.be/sNPnbI1arSE	0	Greatest Hip-Hop
+Dr. Dre ft. Snoop Dogg	Still D.R.E.	1999	https://youtu.be/_CL6n0FJZpk	0	Greatest Hip-Hop
+Jay-Z ft. UGK	Big Pimpin'	1999	https://youtu.be/Cgoqrgc_0cM	0	Greatest Hip-Hop
+Dr. Dre ft. Eminem	Forgot About Dre	1999	https://youtu.be/QFcv5Ma8u8k	0	Greatest Hip-Hop
+OutKast	Ms. Jackson	2000	https://youtu.be/MYxAiK6VnXw	0	Greatest Hip-Hop
+Eminem ft. Dido	Stan	2000	https://youtu.be/gOMhN-hfMtY	0	Greatest Hip-Hop
+Eminem	The Real Slim Shady	2000	https://youtu.be/eJO5HU_7_1w	0	Greatest Hip-Hop
+OutKast	B.O.B. (Bombs Over Baghdad)	2000	https://youtu.be/lVehcuJXe6I	0	Greatest Hip-Hop
+Common	The Light	2000	https://youtu.be/OjHX7jf-znA	0	Greatest Hip-Hop
+Nelly	Country Grammar (Hot...)	2000	https://youtu.be/Y5qKNlcUwKs	0	Greatest Hip-Hop
+Missy Elliott	Get Ur Freak On	2001	https://youtu.be/FPoKiGQzbSQ	0	Greatest Hip-Hop
+Jay-Z	Izzo (H.O.V.A.)	2001	https://youtu.be/GRKmpn3SBdw	0	Greatest Hip-Hop
+Eminem	Lose Yourself	2002	https://youtu.be/_Yhyp-_hX2s	0	Greatest Hip-Hop
+Nelly	Hot in Herre	2002	https://youtu.be/GeZZr_p6vB8	0	Greatest Hip-Hop
+Eminem	Without Me	2002	https://youtu.be/YVkUvmDQ3HY	0	Greatest Hip-Hop
+Eminem ft. Nate Dogg	'Till I Collapse	2002	https://youtu.be/Obim8BYGnOE	0	Greatest Hip-Hop
+Missy Elliott	Work It	2002	https://youtu.be/cjIvu7e6Wq8	0	Greatest Hip-Hop
+Clipse	Grindin'	2002	https://youtu.be/TjWAWcx4xdE	0	Greatest Hip-Hop
+50 Cent	In da Club	2003	https://youtu.be/5qm8PH4xAss	0	Greatest Hip-Hop
+Jay-Z	99 Problems	2003	https://youtu.be/6uikJTnmtgw	0	Greatest Hip-Hop
+OutKast	Hey Ya!	2003	https://youtu.be/PWgvGjAhvIw	0	Greatest Hip-Hop
+Jay-Z	Dirt Off Your Shoulder	2003	https://youtu.be/Oz_-VaTHpc8	0	Greatest Hip-Hop
+Ludacris ft. Shawnna	Stand Up	2003	https://youtu.be/pZG7IK99OvI	0	Greatest Hip-Hop
+50 Cent ft. Snoop Dogg & G-Unit	P.I.M.P.	2003	https://youtu.be/xVcMBiltNZI	0	Greatest Hip-Hop
+50 Cent ft. Nate Dogg	21 Questions	2003	https://youtu.be/cDMhlvbOFaM	0	Greatest Hip-Hop
+Kanye West	Through the Wire	2003	https://youtu.be/AE8y25CcE6s	0	Greatest Hip-Hop
+T.I.	Rubber Band Man	2003	https://youtu.be/xjDT3rMSQLQ	0	Greatest Hip-Hop
+Kanye West	Jesus Walks	2004	https://youtu.be/MYF7H_fpc-g	0	Greatest Hip-Hop
+Snoop Dogg ft. Pharrell	Drop It Like It's Hot	2004	https://youtu.be/GtUVQei3nX4	0	Greatest Hip-Hop
+Lil Wayne	Go DJ	2004	https://youtu.be/MNS-Ho5tWo0	0	Greatest Hip-Hop
+Jadakiss ft. Anthony Hamilton	Why	2004	https://youtu.be/0-cpL--0AQA	0	Greatest Hip-Hop
+Terror Squad	Lean Back	2004	https://youtu.be/ajmI1P3r1w4	0	Greatest Hip-Hop
+Kanye West ft. Jamie Foxx	Gold Digger	2005	https://youtu.be/6vwNcNOTVzY	0	Greatest Hip-Hop
+50 Cent ft. Olivia	Candy Shop	2005	https://youtu.be/SRcnnId15BA	0	Greatest Hip-Hop
+The Game ft. 50 Cent	Hate It or Love It	2005	https://youtu.be/BuMBmK5uksg	0	Greatest Hip-Hop
+Kanye West ft. Lupe Fiasco	Touch the Sky	2005	https://youtu.be/B95OUKk7alM	0	Greatest Hip-Hop
+Missy Elliott ft. Ciara & Fat Man Scoop	Lose Control	2005	https://youtu.be/na7lIb09898	0	Greatest Hip-Hop
+Chamillionaire ft. Krayzie Bone	Ridin'	2005	https://youtu.be/CtwJvgPJ9xw	0	Greatest Hip-Hop
+Young Jeezy ft. Akon	Soul Survivor	2005	https://youtu.be/DtC3Vtq-1ns	0	Greatest Hip-Hop
+T.I.	What You Know	2006	https://youtu.be/i73Mx0Z5Qek	0	Greatest Hip-Hop
+Lupe Fiasco	Kick, Push	2006	https://youtu.be/Gl83mI69nX4	0	Greatest Hip-Hop
+Fat Joe ft. Lil Wayne	Make It Rain	2006	https://youtu.be/6OP8SNdyWJA	0	Greatest Hip-Hop
+Kanye West	Stronger	2007	https://youtu.be/PsO6ZnUZI0g	0	Greatest Hip-Hop
+Kanye West ft. Dwele	Flashing Lights	2007	https://youtu.be/ila-hAUXR5U	0	Greatest Hip-Hop
+Soulja Boy Tell 'Em	Crank That (Soulja Boy)	2007	https://youtu.be/8UFIYGkROII	0	Greatest Hip-Hop
+Flo Rida ft. T-Pain	Low	2007	https://youtu.be/U2waT9TxPU0	0	Greatest Hip-Hop
+Lil Wayne ft. Static Major	Lollipop	2008	https://youtu.be/2IH8tNQAzSs	0	Greatest Hip-Hop
+Kanye West	Heartless	2008	https://youtu.be/Co0tTeuUVhU	0	Greatest Hip-Hop
+Lil Wayne	A Milli	2008	https://youtu.be/1Vf4mMCpNY0	0	Greatest Hip-Hop
+T.I.	Whatever You Like	2008	https://youtu.be/nQJACVmankY	0	Greatest Hip-Hop
+T.I. ft. Rihanna	Live Your Life	2008	https://youtu.be/koVHN6eO4Xg	0	Greatest Hip-Hop
+Kid Cudi	Day 'n' Nite	2008	https://youtu.be/VrDfSZ_6f4U	0	Greatest Hip-Hop
+Jay-Z ft. Alicia Keys	Empire State of Mind	2009	https://youtu.be/vk6014HuxcE	0	Greatest Hip-Hop
+Drake	Best I Ever Had	2009	https://youtu.be/mgs4y8gGOZo	0	Greatest Hip-Hop
+Jay-Z ft. Rihanna & Kanye West	Run This Town	2009	https://youtu.be/ztygmWtWCjQ	0	Greatest Hip-Hop
+Kanye West ft. Pusha T	Runaway	2010	https://youtu.be/Bm5iA4Zupek	0	Greatest Hip-Hop
+Eminem ft. Rihanna	Love the Way You Lie	2010	https://youtu.be/uelHwf8o7_U	0	Greatest Hip-Hop
+Eminem	Not Afraid	2010	https://youtu.be/j5-yKhDd64s	0	Greatest Hip-Hop
+Kanye West	Power	2010	https://youtu.be/L53gjP-TtGE	0	Greatest Hip-Hop
+Kanye West	All of the Lights	2010	https://youtu.be/DTq4XEliPag	0	Greatest Hip-Hop
+Wiz Khalifa	Black and Yellow	2010	https://youtu.be/UePtoxDhJSw	0	Greatest Hip-Hop
+Jay-Z & Kanye West	Otis	2011	https://youtu.be/BoEKWtgJQAU	0	Greatest Hip-Hop
+Kendrick Lamar	Swimming Pools (Drank)	2012	https://youtu.be/B5YNiCfWC3A	0	Greatest Hip-Hop
+Macklemore & Ryan Lewis ft. Wanz	Thrift Shop	2012	https://youtu.be/QK8mJJJvaes	0	Greatest Hip-Hop
+Kanye West ft. Big Sean, Pusha T & 2 Chainz	Mercy	2012	https://youtu.be/7Dqgr0wNyPo	0	Greatest Hip-Hop
+Kendrick Lamar ft. Jay Rock	Money Trees	2012	https://youtu.be/Iy-dJwHVX84	0	Greatest Hip-Hop
+Drake	Started from the Bottom	2013	https://youtu.be/RubBzkZzpUA	0	Greatest Hip-Hop
+Kanye West	Bound 2	2013	https://youtu.be/BBAtAM7vtgc	0	Greatest Hip-Hop
+Eminem	Rap God	2013	https://youtu.be/XbGs_qK2PQA	0	Greatest Hip-Hop
+Migos	Versace	2013	https://youtu.be/rF-hq_CHNH0	0	Greatest Hip-Hop
+Iggy Azalea ft. Charli XCX	Fancy	2014	https://youtu.be/O-zpOMYRi0w	0	Greatest Hip-Hop
+Nicki Minaj	Anaconda	2014	https://youtu.be/OK5-fE6gAT4	0	Greatest Hip-Hop
+J. Cole	No Role Modelz	2014	https://youtu.be/8HBcV0MtAQg	0	Greatest Hip-Hop
+Kendrick Lamar	Alright	2015	https://youtu.be/JocAXINz-YE	0	Greatest Hip-Hop
+Drake	Hotline Bling	2015	https://youtu.be/uxpDa-c-4Mc	0	Greatest Hip-Hop
+Kendrick Lamar	King Kunta	2015	https://youtu.be/hRK7PVJFbS8	0	Greatest Hip-Hop
+Wiz Khalifa ft. Charlie Puth	See You Again	2015	https://youtu.be/RgKAFK5djSk	0	Greatest Hip-Hop
+Travis Scott	Antidote	2015	https://youtu.be/KnZ8h3MRuYg	0	Greatest Hip-Hop
+Drake ft. WizKid & Kyla	One Dance	2016	https://youtu.be/FOqKN-ouAUE	0	Greatest Hip-Hop
+Rae Sremmurd ft. Gucci Mane	Black Beatles	2016	https://youtu.be/b8m9zhNAgKs	0	Greatest Hip-Hop
+Migos ft. Lil Uzi Vert	Bad and Boujee	2016	https://youtu.be/S-sJp1FfG7Q	0	Greatest Hip-Hop
+Travis Scott ft. Kendrick Lamar	goosebumps	2016	https://youtu.be/Dst9gZkq1a8	0	Greatest Hip-Hop
+Chance the Rapper ft. Lil Wayne & 2 Chainz	No Problem	2016	https://youtu.be/DbIwOKe3QfQ	0	Greatest Hip-Hop
+Post Malone ft. Quavo	Congratulations	2016	https://youtu.be/SC4xMk98Pdc	0	Greatest Hip-Hop
+Kendrick Lamar	HUMBLE.	2017	https://youtu.be/ov4WobPqoSA	0	Greatest Hip-Hop
+Future	Mask Off	2017	https://youtu.be/xvZqHgFz51I	0	Greatest Hip-Hop
+Kendrick Lamar	DNA.	2017	https://youtu.be/Fb3j_yuFh1s	0	Greatest Hip-Hop
+Cardi B	Bodak Yellow	2017	https://youtu.be/PEGccV-NOm8	0	Greatest Hip-Hop
+Post Malone ft. 21 Savage	rockstar	2017	https://youtu.be/UceaB4D0jpo	0	Greatest Hip-Hop
+Lil Uzi Vert	XO Tour Llif3	2017	https://youtu.be/WrsFXgQk5UI	0	Greatest Hip-Hop
+Logic ft. Alessia Cara & Khalid	1-800-273-8255	2017	https://youtu.be/imhCPu-78VE	0	Greatest Hip-Hop
+Childish Gambino	This Is America	2018	https://youtu.be/VYOjWnS4cMY	0	Greatest Hip-Hop
+Travis Scott ft. Drake	Sicko Mode	2018	https://youtu.be/6ONRf7h3Mdk	0	Greatest Hip-Hop
+Drake	God's Plan	2018	https://youtu.be/xpVfcZ0ZcFM	0	Greatest Hip-Hop
+Drake	Nice for What	2018	https://youtu.be/U9BwWKXjVaI	0	Greatest Hip-Hop
+Cardi B, Bad Bunny & J Balvin	I Like It	2018	https://youtu.be/xTlNMmZKwpA	0	Greatest Hip-Hop
+Juice WRLD	Lucid Dreams	2018	https://youtu.be/hHtv2XMZlKs	0	Greatest Hip-Hop
+Lil Nas X	Old Town Road	2018	https://youtu.be/HIeIjFqKHSE	0	Greatest Hip-Hop
+21 Savage ft. J. Cole	a lot	2018	https://youtu.be/DmWWqogr_r8	0	Greatest Hip-Hop
+Roddy Ricch	The Box	2019	https://youtu.be/UNZqm3dxd2w	0	Greatest Hip-Hop
+J. Cole	Middle Child	2019	https://youtu.be/e8CLsYzE5wk	0	Greatest Hip-Hop
+Tyler, the Creator	EARFQUAKE	2019	https://youtu.be/Oo3wu3wx1i8	0	Greatest Hip-Hop
+Pop Smoke	Dior	2019	https://youtu.be/oorVWW9ywG0	0	Greatest Hip-Hop
+DaBaby ft. Roddy Ricch	ROCKSTAR	2020	https://youtu.be/mxFstYSbBmc	0	Greatest Hip-Hop
+Cardi B ft. Megan Thee Stallion	WAP	2020	https://youtu.be/hsm4poTWjMs	0	Greatest Hip-Hop
+Lil Nas X & Jack Harlow	Industry Baby	2021	https://youtu.be/UTHLKHL_whs	0	Greatest Hip-Hop
+Polo G	RAPSTAR	2021	https://youtu.be/w2IhccXakkE	0	Greatest Hip-Hop
+Jack Harlow	First Class	2022	https://youtu.be/yQBImEeXNZ4	0	Greatest Hip-Hop
+Metro Boomin, The Weeknd & 21 Savage	Creepin'	2022	https://youtu.be/VYsr8v1jMHI	0	Greatest Hip-Hop
+Doja Cat	Paint the Town Red	2023	https://youtu.be/m4_9TFeMfJE	0	Greatest Hip-Hop
+Travis Scott ft. Playboi Carti	FE!N	2023	https://youtu.be/B9synWjqBn8	0	Greatest Hip-Hop
+Kendrick Lamar	Not Like Us	2024	https://youtu.be/H58vbez_m4E	0	Greatest Hip-Hop
+Future, Metro Boomin & Kendrick Lamar	Like That	2024	https://youtu.be/N9bKBAA22Go	0	Greatest Hip-Hop`;
+
+/* ---------- storage (always guarded) ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+/* ---------- parsing ---------- */
+function parseTable(text){
+  text = String(text).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  const first = text.split('\n', 1)[0];
+  const delim = first.includes('\t') ? '\t' : (first.split(';').length > first.split(',').length ? ';' : ',');
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"' && f === '') q = true;
+    else if (c === delim){ row.push(f); f = ''; }
+    else if (c === '\n'){ row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length){ row.push(f); rows.push(row); }
+  return rows;
+}
+function ytId(link){
+  link = String(link || '').trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(link)) return link;
+  const m = link.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/);
+  return m && /youtu/.test(link) ? m[1] : null;
+}
+const HEAD = {
+  artist:['artist','artists'], title:['title','song','song_title'], year:['year','original_year','release_year'],
+  link:['youtube_link','link','youtube','url','youtube_url'], start:['start_sec','start','start_second','start_seconds'],
+  playlists:['playlists','playlist']
+};
+const norm = s => String(s||'').trim().toLowerCase().replace(/[\s_-]+/g,'_');
+function importText(text){
+  const rows = parseTable(text).map((r, i) => (r.rowNo = i + 1, r)).filter(r => r.some(c => String(c).trim() !== ''));
+  if (!rows.length) return { error: 'Nothing to import. Paste rows from your Sheet, including the header row.' };
+  const hdr = rows[0].map(norm); const col = {};
+  for (const k in HEAD){ const i = hdr.findIndex(h => HEAD[k].includes(h)); if (i >= 0) col[k] = i; }
+  const missing = ['artist','title','year','link'].filter(k => col[k] == null);
+  if (missing.length) return { error: 'The first row needs these column names: artist, title, year, youtube_link. Missing: ' + missing.map(k => k === 'link' ? 'youtube_link' : k).join(', ') + '.' };
+  const songs = [], problems = [], seen = {};
+  for (let i = 1; i < rows.length; i++){
+    const r = rows[i];
+    const rowNo = r.rowNo;
+    const g = k => col[k] == null ? '' : String(r[col[k]] ?? '').trim();
+    const artist = g('artist'), title = g('title'), yr = g('year'), id = ytId(g('link'));
+    const label = (artist || '?') + ' — ' + (title || '?');
+    if (!artist || !title){ problems.push({ row: rowNo, msg: 'missing artist or title' }); continue; }
+    if (!/^\d{4}$/.test(yr) || +yr < 1900 || +yr > 2100){ problems.push({ row: rowNo, msg: label + ': year "' + yr + '" is not a 4-digit year' }); continue; }
+    if (!id){ problems.push({ row: rowNo, msg: label + ': not a YouTube link' }); continue; }
+    if (seen[id]){ problems.push({ row: rowNo, msg: label + ': same video as row ' + seen[id] }); continue; }
+    seen[id] = rowNo;
+    const st = parseInt(g('start'), 10);
+    const pls = g('playlists').split(',').map(s => s.trim()).filter(Boolean);
+    songs.push({ id, artist, title, year: +yr, start: st > 0 ? st : 0, playlists: [...new Set(pls)] });
+  }
+  return { songs, problems };
+}
+
+/* ---------- library ---------- */
+let lib = store.get('nd_lib', null);
+if (!lib || !Array.isArray(lib.songs)) lib = { songs: importText(SAMPLE).songs, source: 'sample' };
+let history = new Set(store.get('nd_history', []));
+let failed = store.get('nd_failed', []);
+const saveLib = () => store.set('nd_lib', lib);
+const saveHistory = () => store.set('nd_history', [...history]);
+function markPlayed(id){ if (!history.has(id)){ history.add(id); saveHistory(); } }
+function playlistCounts(){
+  const m = new Map();
+  lib.songs.forEach(s => s.playlists.forEach(p => m.set(p, (m.get(p) || 0) + 1)));
+  return [...m.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+}
+function selectionSongs(sel){
+  if (!sel.length || sel.includes('__all')) return lib.songs.slice();
+  return lib.songs.filter(s => s.playlists.some(p => sel.includes(p)));
+}
+const songUrl = s => 'https://youtu.be/' + s.id + (s.start ? '?t=' + s.start : '');
+
+/* ---------- app state ---------- */
+const defaultSetup = () => ({ players: [ { name: 'Player 1', color: COLORS[0] }, { name: 'Player 2', color: COLORS[1] } ], sel: ['__all'] });
+const app = {
+  screen: 'home',
+  setup: store.get('nd_setup', null) || defaultSetup(),
+  game: store.get('nd_game', null),
+  sound: store.get('nd_sound', true),
+  menu: false, confirm: null, libMsg: null
+};
+let undoStack = [];
+function save(){ store.set('nd_setup', app.setup); store.set('nd_game', app.game); }
+
+/* ---------- game logic ---------- */
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function djIndex(G){
+  if (G.sd){ const o = G.sd.order, i = o.indexOf(G.current); return o[(i + 1) % o.length]; }
+  return G.players.length === 1 ? G.current : (G.current + 1) % G.players.length;
+}
+function gapOk(G, ids, g, year){
+  const prev = g > 0 ? G.songs[ids[g-1]].year : -Infinity;
+  const next = g < ids.length ? G.songs[ids[g]].year : Infinity;
+  return prev <= year && year <= next;
+}
+function insertSorted(G, ids, id){
+  const y = G.songs[id].year; let i = 0;
+  while (i < ids.length && G.songs[ids[i]].year <= y) i++;
+  ids.splice(i, 0, id);
+}
+function newGame(){
+  const S = app.setup;
+  const pool = selectionSongs(S.sel).filter(s => !history.has(s.id));
+  const songs = {}; pool.forEach(s => songs[s.id] = s);
+  const deck = shuffle(pool.map(s => s.id));
+  const players = S.players.map(p => ({ name: p.name.trim() || 'Player', color: p.color, timeline: [], tokens: START_TOKENS }));
+  players.forEach(p => { const id = deck.pop(); p.timeline.push(id); markPlayed(id); });
+  app.game = { players, songs, deck, current: 0, turn: 0, phase: 'dj', song: null, qr: false,
+    placement: null, named: false, challenger: null, challengeGap: null, result: null, sd: null, over: null,
+    sel: S.sel.slice(), total: pool.length };
+  undoStack = [];
+  draw();
+}
+function resetTurn(G){ G.placement = null; G.named = false; G.challenger = null; G.challengeGap = null; G.result = null; G.qr = false; }
+function draw(){
+  const G = app.game;
+  resetTurn(G);
+  if (!G.deck.length){ endOutOfSongs(); return; }
+  G.song = G.deck.pop(); markPlayed(G.song); G.phase = 'dj';
+}
+function endOutOfSongs(){
+  const G = app.game;
+  const pool = G.sd ? G.sd.order : G.players.map((_, i) => i);
+  const max = Math.max(...pool.map(i => G.players[i].timeline.length));
+  const winners = pool.filter(i => G.players[i].timeline.length === max);
+  G.over = { winners, reason: 'songs' }; G.phase = 'over';
+}
+function endTurn(){
+  const G = app.game, n = G.players.length;
+  const roundEnded = G.current === n - 1;
+  G.turn++; G.current = (G.current + 1) % n;
+  if (roundEnded){
+    const reached = G.players.map((p, i) => i).filter(i => G.players[i].timeline.length >= TARGET);
+    if (reached.length){
+      const max = Math.max(...reached.map(i => G.players[i].timeline.length));
+      const top = reached.filter(i => G.players[i].timeline.length === max);
+      if (top.length === 1){ G.over = { winners: top, reason: 'target' }; G.phase = 'over'; horn(); return; }
+      G.sd = { order: top, results: {}, round: 1 }; G.current = top[0];
+    }
+  }
+  draw();
+}
+function sdNext(){
+  const G = app.game, sd = G.sd;
+  const left = sd.order.filter(i => !(i in sd.results));
+  if (left.length){ G.current = left[0]; draw(); return; }
+  const right = sd.order.filter(i => sd.results[i]);
+  if (right.length === 1){ G.over = { winners: right, reason: 'sudden' }; G.phase = 'over'; horn(); return; }
+  if (right.length) sd.order = right;
+  sd.results = {}; sd.round++; G.current = sd.order[0]; draw();
+}
+function eligibleChallengers(G){
+  if (G.sd || G.players.length < 3) return [];
+  const dj = djIndex(G);
+  return G.players.map((p, i) => i).filter(i => i !== G.current && i !== dj && G.players[i].tokens >= CHALLENGE_COST);
+}
+function reveal(){
+  const G = app.game, A = G.players[G.current], y = G.songs[G.song].year;
+  const ok = gapOk(G, A.timeline, G.placement, y);
+  const ch = G.challenger;
+  const chOk = ch != null && !ok && gapOk(G, A.timeline, G.challengeGap, y);
+  const r = { type: 'placed', ok, chOk, ch, named: false, tokenCapped: false, newId: null, owner: null };
+  if (ch != null) G.players[ch].tokens -= CHALLENGE_COST;
+  if (G.named && !G.sd){ if (A.tokens < MAX_TOKENS){ A.tokens++; r.named = true; } else r.tokenCapped = true; }
+  if (ok){ A.timeline.splice(G.placement, 0, G.song); r.newId = G.song; r.owner = G.current; }
+  else if (chOk){ insertSorted(G, G.players[ch].timeline, G.song); r.owner = ch; }
+  if (G.sd) G.sd.results[G.current] = ok;
+  G.result = r; G.phase = 'reveal';
+  if (ok || chOk) horn();
+}
+
+/* ---------- actions ---------- */
+const snap = () => { undoStack.push(JSON.stringify(app.game)); if (undoStack.length > 40) undoStack.shift(); };
+const A = {
+  toHome(){ app.screen = 'home'; },
+  toSetup(){ app.screen = 'setup'; },
+  toLibrary(){ app.screen = 'library'; app.libMsg = null; },
+  resume(){ app.screen = 'game'; wake(); },
+  addPlayer(){ const P = app.setup.players; if (P.length >= 5) return; const used = P.map(p => p.color); P.push({ name: 'Player ' + (P.length + 1), color: COLORS.find(c => !used.includes(c)) || COLORS[0] }); },
+  removePlayer(i){ if (app.setup.players.length > 1) app.setup.players.splice(+i, 1); },
+  color(v){ const [i, c] = v.split('|'); const P = app.setup.players; const other = P.find((p, j) => j !== +i && p.color === c); if (other) other.color = P[+i].color; P[+i].color = c; },
+  togglePl(name){
+    let s = app.setup.sel;
+    if (name === '__all') s = ['__all'];
+    else { s = s.filter(x => x !== '__all'); s = s.includes(name) ? s.filter(x => x !== name) : [...s, name]; if (!s.length) s = ['__all']; }
+    app.setup.sel = s;
+  },
+  restartSelection(){ selectionSongs(app.setup.sel).forEach(s => history.delete(s.id)); saveHistory(); },
+  start(){ newGame(); app.screen = 'game'; app.menu = false; wake(); },
+  showQr(){ app.game.qr = true; },
+  playing(){ snap(); app.game.phase = 'place'; },
+  replace(){
+    snap(); const G = app.game; const s = G.songs[G.song];
+    if (!failed.some(f => f.id === s.id)){ failed.push({ id: s.id, artist: s.artist, title: s.title }); store.set('nd_failed', failed); }
+    draw();
+  },
+  placeAt(g){ const G = app.game; if (G.phase !== 'place') return; snap(); G.placement = +g; },
+  lock(){ const G = app.game; if (G.placement == null) return; snap(); G.phase = 'locked'; },
+  skip(){ const G = app.game, P = G.players[G.current]; if (G.sd || P.tokens < SKIP_COST) return; snap(); P.tokens -= SKIP_COST; draw(); G.skipped = true; },
+  buy(){
+    const G = app.game, P = G.players[G.current]; if (G.sd || P.tokens < BUY_COST) return;
+    snap(); P.tokens -= BUY_COST; insertSorted(G, P.timeline, G.song);
+    G.result = { type: 'bought', newId: G.song, owner: G.current }; G.phase = 'reveal';
+  },
+  named(v){ snap(); app.game.named = v === '1'; },
+  challenger(i){ const G = app.game; snap(); if (G.challenger === +i){ G.challenger = null; } else G.challenger = +i; G.challengeGap = null; },
+  challengeAt(g){ const G = app.game; if (G.challenger == null || +g === G.placement) return; snap(); G.challengeGap = +g; },
+  reveal(){ const G = app.game; if (G.challenger != null && G.challengeGap == null) return; snap(); reveal(); },
+  next(){ const G = app.game; snap(); G.skipped = false; if (G.sd) sdNext(); else endTurn(); },
+  undo(){ if (!undoStack.length) return; app.game = JSON.parse(undoStack.pop()); },
+  menu(){ app.menu = !app.menu; },
+  sound(){ app.sound = !app.sound; store.set('nd_sound', app.sound); if (app.sound) horn(); },
+  testHorn(){ horn(true); },
+  endGame(){ if (app.confirm !== 'end'){ app.confirm = 'end'; return 'keep'; } app.game = null; undoStack = []; app.screen = 'home'; app.menu = false; },
+  playAgain(){ const G = app.game; app.setup.players = G.players.map(p => ({ name: p.name, color: p.color })); app.setup.sel = G.sel; app.game = null; app.screen = 'setup'; },
+  finish(){ app.game = null; app.screen = 'home'; },
+  importReplace(){ doImport(false); },
+  sheetLoad(){ loadSheet(false); return 'keep'; },
+  sheetForget(){ sheetUrl = ''; store.del('nd_sheet'); app.libMsg = { kind: 'good', text: 'Sheet link removed. Your current library was kept.' }; },
+  importAdd(){ doImport(true); },
+  resetHistory(){ if (app.confirm !== 'hist'){ app.confirm = 'hist'; return 'keep'; } history = new Set(); saveHistory(); app.libMsg = { kind: 'good', text: 'Play history cleared. Every song can come up again.' }; },
+  clearFailed(){ failed = []; store.set('nd_failed', failed); },
+  useSample(){ lib = { songs: importText(SAMPLE).songs, source: 'sample' }; saveLib(); app.libMsg = { kind: 'good', text: 'Sample library restored.' }; },
+  copyHeader(_, el){ const t = 'artist\ttitle\tyear\tyoutube_link\tstart_sec\tplaylists'; try{ navigator.clipboard.writeText(t).then(() => { el.textContent = 'Copied'; }, () => selectHdr()); }catch(e){ selectHdr(); } return 'keep'; }
+};
+function selectHdr(){ const c = document.getElementById('hdr'); if (!c) return; const r = document.createRange(); r.selectNodeContents(c); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+function doImport(add, textArg){
+  const box = document.getElementById('pasteBox');
+  const res = importText(textArg != null ? textArg : (box ? box.value : ''));
+  if (res.error){ app.libMsg = { kind: 'bad', text: res.error }; return; }
+  if (!res.songs.length){ app.libMsg = { kind: 'bad', text: 'No usable rows found.', problems: res.problems }; return; }
+  if (add){
+    const map = new Map(lib.songs.map(s => [s.id, s])); res.songs.forEach(s => map.set(s.id, s));
+    lib = { songs: [...map.values()], source: 'custom' };
+  } else lib = { songs: res.songs, source: 'custom' };
+  saveLib();
+  const pl = new Set(); res.songs.forEach(s => s.playlists.forEach(p => pl.add(p)));
+  app.libMsg = { kind: res.problems.length ? 'warn' : 'good',
+    text: (add ? 'Added or updated ' : 'Imported ') + res.songs.length + ' songs in ' + pl.size + ' playlists. Library now has ' + lib.songs.length + ' songs.' + (res.problems.length ? ' ' + res.problems.length + ' rows skipped:' : ''),
+    problems: res.problems };
+  app.setup.sel = ['__all'];
+}
+
+/* ---------- Google Sheet link ---------- */
+let sheetUrl = store.get('nd_sheet', '');
+let sheetBusy = false;
+function sheetCsvUrl(u){
+  u = String(u || '').trim();
+  if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(u)) return null;
+  let m = u.match(/\/spreadsheets\/d\/e\/([A-Za-z0-9_-]+)/);
+  if (m){ const gid = (u.match(/[?&#]gid=(\d+)/) || [])[1]; return 'https://docs.google.com/spreadsheets/d/e/' + m[1] + '/pub?output=csv' + (gid ? '&gid=' + gid : ''); }
+  m = u.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]+)/);
+  if (m){ const gid = (u.match(/[?&#]gid=(\d+)/) || [])[1]; return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/export?format=csv' + (gid ? '&gid=' + gid : ''); }
+  return null;
+}
+async function loadSheet(quiet){
+  const input = document.getElementById('sheetBox');
+  if (input && !quiet) sheetUrl = input.value.trim();
+  const url = sheetCsvUrl(sheetUrl);
+  if (!url){ if (!quiet){ app.libMsg = { kind: 'bad', text: 'That is not a Google Sheets link. In the Sheet use File → Share → Publish to web, choose CSV, and paste the link it gives you.', sheet: true }; render(); } return; }
+  store.set('nd_sheet', sheetUrl);
+  sheetBusy = true; if (!quiet) render();
+  let text = null, err = null;
+  try{
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    text = await r.text();
+    if (/^\s*<(!doctype|html)/i.test(text)) throw new Error('html');
+  }catch(e){ err = e; }
+  sheetBusy = false;
+  if (err){
+    if (!quiet){ app.libMsg = { kind: 'bad', text: 'Could not read the Sheet. Make sure it is published to the web (File → Share → Publish to web → CSV). Your current library was kept.', sheet: true }; render(); }
+    return;
+  }
+  const res = importText(text);
+  if (res.error || !res.songs.length){
+    if (!quiet || res.error){ app.libMsg = { kind: 'bad', text: 'Sheet loaded, but ' + (res.error ? res.error : 'no usable rows were found.') + ' Your current library was kept.', problems: res.problems, sheet: true }; }
+    if (!quiet) render(); return;
+  }
+  const keepSel = app.setup.sel.slice();
+  doImport(false, text);
+  if (app.libMsg) app.libMsg.sheet = true;
+  lib.source = 'sheet'; saveLib();
+  if (quiet){ const names = new Set(playlistCounts().map(x => x[0])); const s = keepSel.filter(x => x === '__all' || names.has(x)); app.setup.sel = s.length ? s : ['__all']; save(); }
+  if (quiet && !res.problems.length) app.libMsg = null;
+  if (app.screen !== 'game') render();
+}
+
+/* ---------- sound ---------- */
+let actx = null;
+function horn(force){
+  if (!app.sound && !force) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const t0 = actx.currentTime + 0.02;
+    const out = actx.createGain(); out.gain.value = 0.22;
+    const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+    const ws = actx.createWaveShaper(); const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++){ const x = i / 128 - 1; curve[i] = Math.tanh(2.5 * x); } ws.curve = curve;
+    lp.connect(ws); ws.connect(out); out.connect(actx.destination);
+    [[0, .16], [.21, .16], [.42, .85]].forEach(([st, d]) => {
+      [[440, 1], [443, .9], [220, .6], [660, .35], [880, .2]].forEach(([f, v]) => {
+        const o = actx.createOscillator(); o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f * .93, t0 + st); o.frequency.exponentialRampToValueAtTime(f, t0 + st + .06);
+        const g = actx.createGain(); g.gain.setValueAtTime(0, t0 + st);
+        g.gain.linearRampToValueAtTime(.18 * v, t0 + st + .015);
+        g.gain.setValueAtTime(.18 * v, t0 + st + d - .04); g.gain.linearRampToValueAtTime(0, t0 + st + d);
+        o.connect(g); g.connect(lp); o.start(t0 + st); o.stop(t0 + st + d + .05);
+      });
+    });
+  }catch(e){}
+}
+let lock = null;
+async function wake(){ try{ if ('wakeLock' in navigator && !lock) lock = await navigator.wakeLock.request('screen'); if (lock) lock.addEventListener('release', () => { lock = null; }); }catch(e){ lock = null; } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && app.screen === 'game') wake(); });
+
+/* ---------- views ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const tokens = n => `<span class="tk"><span class="tok" aria-hidden="true"></span>${n}</span>`;
+const pdot = c => `<span class="dot" style="--c:${c}"></span>`;
+const libSummary = () => { const pl = playlistCounts().length; return `${lib.songs.length} songs · ${pl} playlists · ${history.size} played${lib.source === 'sample' ? ' · sample library' : ''}`; };
+
+function vHome(){
+  const live = app.game && !app.game.over;
+  return `<main class="home">
+    <div class="hero"><div class="disc" aria-hidden="true"></div>
+      <div><p class="eyebrow">Music timeline party game</p><h1>Dig the Year</h1>
+      <p class="lede">Hear a song, guess where it falls in time, and be first to a timeline of ${TARGET} cards. This screen is the board; a second phone plays the music face down.</p></div></div>
+    <div class="home-actions">
+      ${live ? `<button class="btn primary big" data-act="resume">Resume game</button>` : ''}
+      <button class="btn ${live ? 'ghost' : 'primary'} big" data-act="toSetup">New game</button>
+      <button class="btn ghost big" data-act="toLibrary">Song library</button>
+    </div>
+    <p class="muted small">${libSummary()}</p>
+  </main>`;
+}
+
+function vSetup(){
+  const S = app.setup, n = S.players.length;
+  const pls = playlistCounts();
+  const sel = selectionSongs(S.sel);
+  const unplayed = sel.filter(s => !history.has(s.id)).length;
+  const need = Math.max(15, n * 15);
+  let status;
+  if (!sel.length) status = `<div class="note bad">No songs in this selection.</div>`;
+  else if (!unplayed) status = `<div class="note bad">Every song in this selection has been played.
+      <div class="row" style="margin-top:10px"><button class="btn small" data-act="restartSelection">Start over with these playlists</button><span class="muted small">or pick other playlists above</span></div></div>`;
+  else if (unplayed < n + 1) status = `<div class="note bad">Only ${unplayed} unplayed songs here. You need at least ${n + 1} to start: one starting card per player plus one to play.</div>`;
+  else if (unplayed < need) status = `<div class="note">${unplayed} unplayed songs. A ${n}-player game usually needs about ${need}, so you may run out before anyone reaches ${TARGET}. When songs run out, most cards wins.</div>`;
+  else status = `<div class="note good">${unplayed} unplayed songs ready.</div>`;
+  const canStart = unplayed >= n + 1;
+  const plChip = (key, label, count) => {
+    const on = S.sel.includes(key);
+    return `<button class="chip ${on ? 'sel' : ''}" data-act="togglePl" data-v="${esc(key)}" aria-pressed="${on}">${esc(label)} <span class="n">${count}</span></button>`;
+  };
+  const unpl = list => list.filter(s => !history.has(s.id)).length;
+  return `<div class="page-head"><h1>New game</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
+  <section class="panel"><h2>Players</h2>
+    ${S.players.map((p, i) => `<div class="prow">
+      <input type="text" id="pname${i}" data-name="${i}" value="${esc(p.name)}" maxlength="16" aria-label="Player ${i + 1} name">
+      <div class="swatches" role="radiogroup" aria-label="Colour for player ${i + 1}">${COLORS.map((c, k) => `<button class="sw ${p.color === c ? 'sel' : ''}" style="--c:${c}" role="radio" aria-checked="${p.color === c}" aria-label="${COLOR_NAMES[k]}" data-act="color" data-v="${i}|${c}"></button>`).join('')}</div>
+      ${n > 1 ? `<button class="btn ghost small" data-act="removePlayer" data-v="${i}" aria-label="Remove ${esc(p.name)}">Remove</button>` : ''}
+    </div>`).join('')}
+    <div class="row">${n < 5 ? `<button class="btn small" data-act="addPlayer">Add player</button>` : ''}<span class="muted small">${n} of 5 players${n === 1 ? ' · solo: skip and buy tokens only' : n === 2 ? ' · challenges need 3 or more players' : ''}</span></div>
+  </section>
+  <section class="panel"><h2>Songs</h2>
+    <p class="muted small">Pick one or more playlists. Songs in several playlists are only used once. The number is unplayed songs.</p>
+    <div class="chips">${plChip('__all', 'All songs', unpl(lib.songs))}${pls.map(([p]) => plChip(p, p, unpl(lib.songs.filter(s => s.playlists.includes(p))))).join('')}</div>
+    ${status}
+  </section>
+  <div class="row"><button class="btn primary big" data-act="start" ${canStart ? '' : 'disabled'}>Start game</button>
+  <span class="muted small">Everyone starts with 1 card and ${START_TOKENS} tokens. First to ${TARGET} cards wins.</span></div>`;
+}
+
+function vLibrary(){
+  const pls = playlistCounts(), m = app.libMsg;
+  return `<div class="page-head"><h1>Song library</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
+  <section class="panel">
+    <p>${libSummary()}</p>
+    ${lib.source === 'sample' ? `<div class="note">You're using the ${lib.songs.length}-song sample library. Replace it with your own songs below when your Sheet is ready.</div>` : ''}
+    <div class="plist">${pls.map(([p, c]) => `<div><b>${esc(p)}</b><span>${c}</span></div>`).join('') || '<p class="muted">No playlists yet.</p>'}</div>
+    <div class="row"><button class="btn ${app.confirm === 'hist' ? 'warn' : ''} small" data-act="resetHistory">${app.confirm === 'hist' ? 'Tap again to clear play history' : 'Reset play history (' + history.size + ' played)'}</button>
+    ${lib.source !== 'sample' ? `<button class="btn ghost small" data-act="useSample">Switch back to sample library</button>` : ''}</div>
+  </section>
+  <section class="panel"><h2>Load from your Google Sheet</h2>
+    <p class="small">In the Sheet: File → Share → Publish to web, pick the songs tab and <b>Comma-separated values (.csv)</b>, then paste the link here. The app remembers it and re-reads the Sheet every time it opens.</p>
+    <label for="sheetBox" class="small muted">Published Sheet link</label>
+    <input type="url" id="sheetBox" class="sheet" value="${esc(sheetUrl)}" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv">
+    <div class="row"><button class="btn primary" data-act="sheetLoad" ${sheetBusy ? 'disabled' : ''}>${sheetBusy ? 'Loading…' : sheetUrl ? 'Update from Sheet' : 'Load from Sheet'}</button>
+    ${sheetUrl ? `<button class="btn ghost small" data-act="sheetForget">Forget link</button>` : ''}</div>
+    <p class="muted small">Loading replaces the library with the Sheet. Play history is kept.</p>
+    ${m && m.sheet ? `<div class="note ${m.kind === 'bad' ? 'bad' : m.kind === 'good' ? 'good' : ''}">${esc(m.text)}${m.problems && m.problems.length ? `<ul class="problems">${m.problems.map(p => `<li>Row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul>` : ''}</div>` : ''}
+  </section>
+  <section class="panel"><h2>Or paste or upload</h2>
+    <p class="muted small">First row must be these column names. Playlists are comma-separated, like <b>80s, Rock, Party</b>.</p>
+    <div class="row"><code class="hdr" id="hdr">artist | title | year | youtube_link | start_sec | playlists</code><button class="btn ghost small" data-act="copyHeader">Copy header</button></div>
+    <p class="small">In the Sheet, select everything (⌘A or Ctrl+A), copy, and paste here. Or download it as CSV (File → Download → .csv) and upload the file.</p>
+    <label for="pasteBox" class="small muted">Paste rows here</label>
+    <textarea id="pasteBox" placeholder="artist&#9;title&#9;year&#9;youtube_link&#9;start_sec&#9;playlists&#10;Queen&#9;Bohemian Rhapsody&#9;1975&#9;https://youtu.be/…&#9;0&#9;70s, Rock"></textarea>
+    <div class="row">
+      <button class="btn primary" data-act="importReplace">Replace library</button>
+      <button class="btn" data-act="importAdd">Add to library</button>
+      <label class="small muted" for="csvFile">or upload CSV</label><input type="file" id="csvFile" accept=".csv,.tsv,.txt,text/csv">
+    </div>
+    <p class="muted small">"Add" updates songs with the same YouTube video and keeps the rest.</p>
+    ${m && !m.sheet ? `<div class="note ${m.kind === 'bad' ? 'bad' : m.kind === 'good' ? 'good' : ''}">${esc(m.text)}${m.problems && m.problems.length ? `<ul class="problems">${m.problems.map(p => `<li>Row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul>` : ''}</div>` : ''}
+  </section>
+  <section class="panel"><h2>Songs that didn't play</h2>
+    ${failed.length ? `<p class="muted small">The DJ marked these as broken during games. Fix their links in the Sheet and re-import.</p>
+      <ul class="problems">${failed.map(f => `<li>${esc(f.artist)} — ${esc(f.title)} <span class="url">youtu.be/${esc(f.id)}</span></li>`).join('')}</ul>
+      <div class="row"><button class="btn ghost small" data-act="clearFailed">Clear list</button></div>` : `<p class="muted small">None so far.</p>`}
+  </section>`;
+}
+
+function vTopbar(){
+  const G = app.game, dj = djIndex(G);
+  return `<header class="topbar">
+    <span class="brand">Dig the Year</span>
+    <div class="score" aria-label="Scores">
+      ${G.sd ? `<span class="badge">Sudden death</span>` : ''}
+      ${G.players.map((p, i) => `<div class="pchip ${i === G.current && !G.over ? 'active' : ''} ${i === dj && G.players.length > 1 && !G.over ? 'dj' : ''}" style="--c:${p.color}" title="${i === dj ? 'DJ this turn' : ''}">
+        ${pdot(p.color)}<b>${esc(p.name)}</b><span class="cards">${p.timeline.length}</span>${tokens(p.tokens)}</div>`).join('')}
+    </div>
+    <div class="tools">
+      <button class="btn ghost small" data-act="undo" ${undoStack.length ? '' : 'disabled'}>Undo</button>
+      <button class="btn ghost small" data-act="menu" aria-expanded="${app.menu}">Menu</button>
+      ${app.menu ? `<div class="menu">
+        <button class="btn ghost small" data-act="sound">Sound: ${app.sound ? 'on' : 'off'}</button>
+        <button class="btn ghost small" data-act="testHorn">Test airhorn</button>
+        <button class="btn ghost small" data-act="toHome">Home (game is saved)</button>
+        <button class="btn ${app.confirm === 'end' ? 'warn' : 'ghost'} small" data-act="endGame">${app.confirm === 'end' ? 'Tap again to end game' : 'End game'}</button>
+      </div>` : ''}
+    </div>
+  </header>`;
+}
+
+function slotLabel(G, ids, g){
+  const y = i => G.songs[ids[i]].year;
+  if (!ids.length) return 'here';
+  if (g === 0) return 'before ' + y(0);
+  if (g === ids.length) return 'after ' + y(ids.length - 1);
+  return 'between ' + y(g - 1) + ' and ' + y(g);
+}
+const yearCard = (s, color, cls = '') => `<div class="ycard ${cls}" style="--c:${color}"><span class="yr">${s.year}</span><span class="meta"><b>${esc(s.artist)}</b><span>${esc(s.title)}</span></span></div>`;
+const mystery = (state, gap) => `<div class="ycard mystery ${state}" ${state !== 'locked' ? 'data-drag="1"' : ''} ${gap != null ? `data-gap="${gap}"` : ''} role="img" aria-label="Mystery song"><span class="vinyl"><span class="label">?</span></span><span class="meta"><b>${state === 'locked' ? 'Locked in' : state === 'placed' ? 'Placed' : 'Drag me'}</b><span>${state === 'tray' ? 'into your timeline' : state === 'placed' ? 'drag to move' : ''}</span></span></div>`;
+
+function vTimeline(){
+  const G = app.game, A = G.players[G.current], ids = A.timeline, ph = G.phase;
+  const slots = ph === 'place' || ph === 'locked';
+  const chColor = G.challenger != null ? G.players[G.challenger].color : null;
+  let h = '';
+  for (let g = 0; g <= ids.length; g++){
+    if (slots){
+      if (g === G.placement) h += mystery(ph === 'place' ? 'placed' : 'locked', g);
+      else if (ph === 'locked' && g === G.challengeGap) h += `<button class="ycard marker" style="--c:${chColor}" data-act="challengeAt" data-v="${g}" aria-label="${esc(G.players[G.challenger].name)}'s challenge"><span class="vinyl"><span class="label">?</span></span><span class="meta"><b>${esc(G.players[G.challenger].name)}</b><span>challenge</span></span></button>`;
+      else {
+        const live = ph === 'place' || (ph === 'locked' && G.challenger != null);
+        const act = ph === 'place' ? 'placeAt' : 'challengeAt';
+        h += `<button class="slot ${live ? 'live' : ''}" data-gap="${g}" ${live ? `data-act="${act}" data-v="${g}"` : 'disabled tabindex="-1"'} aria-label="Place ${slotLabel(G, ids, g)}"></button>`;
+      }
+    }
+    if (g < ids.length){
+      const isNew = ph === 'reveal' && G.result && G.result.newId === ids[g] && G.result.owner === G.current;
+      h += yearCard(G.songs[ids[g]], A.color, isNew ? 'new' : '');
+    }
+  }
+  return `<div class="timeline" id="timeline">${h}</div>`;
+}
+
+function vStage(){
+  const G = app.game, A = G.players[G.current], di = djIndex(G), D = G.players[di];
+  const solo = G.players.length === 1, s = G.songs[G.song];
+  const turnLine = G.sd ? `Sudden death, round ${G.sd.round}. No tokens or challenges.` : (solo ? `Turn ${G.turn + 1}` : `Round ${Math.floor(G.turn / G.players.length) + 1}`);
+  if (G.phase === 'dj'){
+    const who = solo ? 'You are your own DJ' : `DJ: ${esc(D.name)}`;
+    return `<div class="stage-head"><p class="eyebrow">${turnLine}${G.skipped ? ' · song skipped, new song' : ''}</p>
+      <h2>${solo ? '' : pdot(D.color)}${who}</h2>
+      <p class="muted">${solo ? 'Scan the code with the music phone, put it face down without looking, then tap “Song is playing”.' : `It's ${esc(A.name)}'s turn. ${esc(D.name)}, scan the code with the music phone and put it face down. Don't show anyone the screen.`}</p></div>
+      ${G.qr ? `<div class="stage-body"><div class="qrbox"><div id="qr" data-url="${esc(songUrl(s))}"></div></div>
+        <div class="stage-col"><p>Opens the song in YouTube. Skip any ad, then put the phone face down.</p>
+          <p class="url">${esc(songUrl(s))}</p>
+          <div class="row"><button class="btn primary big" data-act="playing">Song is playing</button>
+          <button class="btn ghost" data-act="replace">Song didn't play — replace</button></div></div></div>`
+      : `<div class="row"><button class="btn primary big" data-act="showQr">Show QR code</button><span class="muted small">Only the DJ should look at the music phone.</span></div>`}`;
+  }
+  if (G.phase === 'place'){
+    const canSkip = !G.sd && A.tokens >= SKIP_COST, canBuy = !G.sd && A.tokens >= BUY_COST;
+    return `<div class="stage-head"><p class="eyebrow">${turnLine}</p><h2>${pdot(A.color)}${esc(A.name)}, place the song</h2>
+      <p class="muted">Drag the record into your timeline below (or tap a gap), then lock it in.</p></div>
+      <div class="stage-body">
+        ${G.placement == null ? `<div class="tray">${mystery('tray', null)}</div>` : ''}
+        <div class="stage-col">
+          <div class="row"><button class="btn primary big" data-act="lock" ${G.placement == null ? 'disabled' : ''}>Lock in</button></div>
+          ${G.sd ? '' : `<div class="row">
+            <button class="btn small" data-act="skip" ${canSkip ? '' : 'disabled'}>Skip song · ${SKIP_COST} ${tokens('')}</button>
+            <button class="btn small" data-act="buy" ${canBuy ? '' : 'disabled'}>Buy this card · ${BUY_COST} ${tokens('')}</button></div>
+            <p class="muted small">${esc(A.name)} has ${A.tokens} token${A.tokens === 1 ? '' : 's'}.</p>`}
+          <div class="row"><button class="btn ghost small" data-act="replace">Song didn't play — replace</button></div>
+        </div></div>`;
+  }
+  if (G.phase === 'locked'){
+    const el = eligibleChallengers(G);
+    const ch = G.challenger != null ? G.players[G.challenger] : null;
+    const namedBlock = G.sd ? '' : `<div class="block"><h3>${solo ? 'Did you' : `${esc(D.name)} (DJ): did ${esc(A.name)}`} name both artist and title?</h3>
+      <div class="row"><button class="btn small ${G.named ? 'on' : ''}" data-act="named" data-v="1" aria-pressed="${G.named}">Yes · +1 token</button>
+      <button class="btn small ${!G.named ? 'on' : ''}" data-act="named" data-v="0" aria-pressed="${!G.named}">No</button>
+      ${A.tokens >= MAX_TOKENS ? `<span class="muted small">Already at ${MAX_TOKENS} tokens.</span>` : ''}</div></div>`;
+    let chBlock = '';
+    if (!G.sd && G.players.length >= 3){
+      chBlock = `<div class="block"><h3>Challenge?</h3>
+        ${el.length ? `<p class="muted small">Whoever shouted first: tap their name. It costs ${CHALLENGE_COST} token. The DJ can't challenge.</p>
+          <div class="chips">${el.map(i => `<button class="chip ${G.challenger === i ? 'sel' : ''}" data-act="challenger" data-v="${i}" aria-pressed="${G.challenger === i}">${pdot(G.players[i].color)}${esc(G.players[i].name)} <span class="n">${G.players[i].tokens}</span></button>`).join('')}</div>
+          ${ch ? `<p><b>${esc(ch.name)}</b>, tap a different gap in ${esc(A.name)}'s timeline.${G.challengeGap != null ? ' Picked: ' + slotLabel(G, A.timeline, G.challengeGap) + '.' : ''}</p>` : ''}`
+        : `<p class="muted small">Nobody else has a token to challenge with.</p>`}</div>`;
+    }
+    const ready = G.challenger == null || G.challengeGap != null;
+    return `<div class="stage-head"><p class="eyebrow">${turnLine}</p><h2>${pdot(A.color)}${esc(A.name)} locked in ${slotLabel(G, A.timeline, G.placement)}</h2></div>
+      <div class="stage-body"><div class="stage-col">${namedBlock}${chBlock}
+      <div class="row"><button class="btn primary big" data-act="reveal" ${ready ? '' : 'disabled'}>Reveal</button>
+      ${!ready ? `<span class="muted small">Waiting for ${esc(ch.name)} to pick a gap.</span>` : ''}</div></div></div>`;
+  }
+  if (G.phase === 'reveal'){
+    const r = G.result;
+    if (r.type === 'bought') return `<div class="stage-head"><p class="eyebrow">${turnLine}</p><h2>${pdot(A.color)}${esc(A.name)} bought the card</h2></div>
+      <div class="stage-body">${yearCard(s, A.color, 'bigcard')}<div class="stage-col"><div class="lines"><span>Paid ${BUY_COST} tokens. It's now in the timeline.</span></div>
+      <div class="row"><button class="btn primary big" data-act="next">Next turn</button></div></div></div>`;
+    const ch = r.ch != null ? G.players[r.ch] : null;
+    const cardColor = r.ok ? A.color : r.chOk ? ch.color : '#7d7799';
+    const head = r.ok ? `<p class="outcome good">Correct!</p>` : r.chOk ? `<p class="outcome good">Stolen by ${esc(ch.name)}!</p>` : `<p class="outcome bad">Wrong</p>`;
+    const lines = [];
+    if (r.ok) lines.push(`The card stays in <b>${esc(A.name)}</b>'s timeline.`);
+    else if (r.chOk) lines.push(`<b>${esc(ch.name)}</b> called it and takes the card.`);
+    else lines.push(`The card is discarded.`);
+    if (ch) lines.push(`${esc(ch.name)} spent ${CHALLENGE_COST} token on the challenge${r.ok ? ' and lost it' : ''}.`);
+    if (r.named) lines.push(`${esc(A.name)} named it: +1 token.`);
+    if (r.tokenCapped) lines.push(`${esc(A.name)} named it, but is already at ${MAX_TOKENS} tokens.`);
+    const nextLabel = G.sd ? 'Continue' : (G.current === G.players.length - 1 && G.players.some(p => p.timeline.length >= TARGET) ? 'Finish round' : 'Next turn');
+    return `<div class="stage-head"><p class="eyebrow">${turnLine}</p>${head}</div>
+      <div class="stage-body">${yearCard(s, cardColor, 'bigcard')}<div class="stage-col"><div class="lines">${lines.map(l => `<span>${l}</span>`).join('')}</div>
+      <div class="row"><button class="btn primary big" data-act="next">${nextLabel}</button>
+      ${G.players.length > 1 ? `<span class="muted small">Pass the ${matchMedia('(max-width:699px)').matches ? 'phone' : 'iPad'} to ${esc(G.players[G.sd ? G.current : (G.current + 1) % G.players.length].name)}.</span>` : ''}</div></div></div>`;
+  }
+  return '';
+}
+
+function vGame(){
+  const G = app.game;
+  if (G.phase === 'over') return vOver();
+  const A = G.players[G.current];
+  return `${vTopbar()}<section class="stage" aria-live="polite">${vStage()}</section>
+    <section class="board" aria-label="${esc(A.name)}'s timeline">
+      <div class="board-head">${pdot(A.color)}<h2>${esc(A.name)}'s timeline</h2><span class="count">${A.timeline.length} / ${TARGET}</span></div>
+      ${vTimeline()}
+    </section>`;
+}
+
+function vOver(){
+  const G = app.game, o = G.over;
+  const names = o.winners.map(i => esc(G.players[i].name));
+  const title = G.players.length === 1 ? (G.players[0].timeline.length >= TARGET ? 'You made it!' : 'Out of songs') : (o.winners.length === 1 ? names[0] + ' wins!' : 'Shared win: ' + names.join(' & '));
+  const why = { target: `First to ${TARGET} cards.`, sudden: 'Won the sudden death.', songs: 'The songs ran out, so most cards wins.' }[o.reason];
+  const order = G.players.map((p, i) => i).sort((a, b) => G.players[b].timeline.length - G.players[a].timeline.length);
+  return `${vTopbar()}<section class="stage"><p class="eyebrow">Game over</p><h1 class="win-title">${title}</h1><p class="muted">${why}</p>
+    <div class="standings">${order.map(i => { const p = G.players[i]; return `<div>${pdot(p.color)}<b>${esc(p.name)}</b>${tokens(p.tokens)}<span class="pts">${p.timeline.length} cards</span></div>`; }).join('')}</div>
+    <div class="row"><button class="btn primary big" data-act="playAgain">Play again</button><button class="btn ghost big" data-act="finish">Home</button></div></section>`;
+}
+
+/* ---------- render ---------- */
+const root = document.getElementById('app');
+function render(){
+  if (app.screen === 'game' && !app.game) app.screen = 'home';
+  root.innerHTML = app.screen === 'setup' ? vSetup() : app.screen === 'library' ? vLibrary() : app.screen === 'game' ? vGame() : vHome();
+  const q = document.getElementById('qr');
+  if (q){
+    if (window.QRCode){ try{ new QRCode(q, { text: q.dataset.url, width: 440, height: 440, colorDark: '#17132b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }catch(e){ q.textContent = 'Could not draw the QR code. Open the link below on the music phone.'; } }
+    else { q.innerHTML = '<p style="color:#17132b;font-size:14px">QR code library did not load. Type or share the link below on the music phone.</p>'; }
+  }
+  const f = document.getElementById('csvFile');
+  if (f) f.addEventListener('change', () => { const file = f.files && f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => { doImport(false, String(rd.result)); save(); render(); }; rd.readAsText(file); });
+  save();
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) {
+    if (app.menu && !e.target.closest('.tools')){ app.menu = false; app.confirm = null; render(); }
+    return;
+  }
+  const name = el.dataset.act;
+  if (!A[name]) return;
+  const before = app.confirm;
+  const res = A[name](el.dataset.v, el);
+  if (res !== 'keep' && before === app.confirm) app.confirm = null;
+  if (name !== 'menu' && name !== 'sound' && name !== 'endGame' && name !== 'testHorn' && name !== 'copyHeader') app.menu = false;
+  if (name === 'copyHeader') return;
+  render();
+});
+document.addEventListener('input', e => {
+  const i = e.target.dataset && e.target.dataset.name;
+  if (i != null){ app.setup.players[+i].name = e.target.value; save(); }
+});
+
+/* ---------- drag to place ---------- */
+let drag = null;
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-drag]');
+  if (!el || !app.game || app.game.phase !== 'place' || e.button > 0) return;
+  e.preventDefault();
+  const r = el.getBoundingClientRect();
+  const ghost = el.cloneNode(true);
+  ghost.classList.add('ghost'); ghost.removeAttribute('data-drag');
+  ghost.style.width = r.width + 'px'; ghost.style.height = r.height + 'px';
+  ghost.style.setProperty('--cw', Math.min(r.width, 108) + 'px');
+  document.body.appendChild(ghost);
+  drag = { el, ghost, dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY, moved: false, hot: null, id: e.pointerId };
+  el.classList.add('lifting');
+  moveGhost(e);
+  try{ el.setPointerCapture(e.pointerId); }catch(err){}
+});
+function moveGhost(e){ drag.ghost.style.left = (e.clientX - drag.dx) + 'px'; drag.ghost.style.top = (e.clientY - drag.dy) + 'px'; }
+document.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) drag.moved = true;
+  moveGhost(e);
+  const tl = document.getElementById('timeline');
+  if (tl){ const tr = tl.getBoundingClientRect(); if (tl.scrollWidth > tl.clientWidth){ if (e.clientX < tr.left + 50) tl.scrollLeft -= 12; else if (e.clientX > tr.right - 50) tl.scrollLeft += 12; } }
+  const cands = [...document.querySelectorAll('#timeline .slot.live, #timeline .ycard.mystery.placed')];
+  let best = null, bd = Infinity;
+  cands.forEach(s => { const r = s.getBoundingClientRect(); const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)); if (d < bd){ bd = d; best = s; } });
+  document.querySelectorAll('.slot.hot').forEach(s => s.classList.remove('hot'));
+  if (best && bd < 240){ if (best.classList.contains('slot')) best.classList.add('hot'); drag.hot = +best.dataset.gap; } else drag.hot = null;
+});
+function endDrag(){
+  if (!drag) return; const d = drag; drag = null;
+  d.ghost.remove(); d.el.classList.remove('lifting');
+  document.querySelectorAll('.slot.hot').forEach(s => s.classList.remove('hot'));
+  if (d.moved && d.hot != null && d.hot !== app.game.placement){ A.placeAt(d.hot); render(); }
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+
+/* ---------- boot ---------- */
+function boot(){
+  if (app.game && app.game.phase !== 'over' && store.get('nd_screen', null) === 'game') app.screen = 'game';
+  render();
+}
+window.addEventListener('pagehide', () => store.set('nd_screen', app.screen));
+setInterval(() => store.set('nd_screen', app.screen), 4000);
+boot();
+if (sheetUrl) loadSheet(true);
+})();
+</script>
+</body>
+</html>
