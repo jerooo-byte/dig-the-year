@@ -95,6 +95,9 @@ input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);
 .erow{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--good)}
 .erow.flag{border-left-color:var(--accent)}
 .erow.off{opacity:.5;border-left-color:var(--line)}
+.echk{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.echk input{width:24px;height:24px;accent-color:var(--accent);flex:none;margin:2px 0 0}
+.yrchg{font-family:var(--display);font-size:18px}
 .enote{color:var(--accent);font-size:14px;font-weight:700}
 .eraw{overflow-wrap:anywhere}
 .efields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 80px 120px;gap:8px 10px}
@@ -466,6 +469,24 @@ async function startCsv(text, name){
   await lookupYears(app.draft, run);
 }
 /* Look up the release year of every draft song marked look, about one a second (MusicBrainz's limit). */
+/* Admin: look every kept song up again with its current artist/title. Results are only proposals
+   (s.found, s.foundNote); nothing changes until the admin approves them on the next screen. */
+async function recheckYears(D){
+  const run = ++importRun;
+  const todo = D.songs.filter(s => s.on);
+  todo.forEach(s => { delete s.found; delete s.foundNote; s.checked = false; });
+  D.stage = 'recheck'; D.done = 0; D.total = todo.length; saveDraft(); render();
+  for (const s of todo){
+    if (run !== importRun || D.stage !== 'recheck') return;
+    const t0 = Date.now();
+    const r = await lookupYear(Object.assign({}, s, { upYear: null }));
+    if (run !== importRun || D.stage !== 'recheck') return;
+    s.found = r.year; s.foundNote = r.note; s.checked = true; s.accept = r.year != null && r.year !== s.year;
+    D.done++; saveDraft(); render();
+    await sleep(Math.max(0, 1100 - (Date.now() - t0)));
+  }
+  if (run === importRun && D.stage === 'recheck'){ D.stage = 'approve'; saveDraft(); render(); }
+}
 async function lookupYears(D, run){
   const todo = D.songs.filter(s => s.look);
   if (!todo.length){ D.stage = 'review'; saveDraft(); render(); return; }
@@ -688,6 +709,12 @@ const A = {
   importYt(){ const box = document.getElementById('ytUrl'); app.ytUrl = box ? box.value : ''; const name = newName(); if (name) startImport(app.ytUrl, name); else render(); return 'keep'; },
   stopLookup(){ const D = app.draft; if (!D || D.stage !== 'years') return; D.songs.filter(x => x.look).forEach(x => { x.look = false; x.note = (x.note ? x.note + ' ' : '') + (x.upYear ? 'Not looked up, so this is the YouTube upload year.' : 'Not looked up. Type the year in.'); }); D.stage = 'review'; saveDraft(); },
   cancelDraft(){ importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library'; },
+  recheck(){ if (app.adminPw && app.draft) recheckYears(app.draft); return 'keep'; },
+  stopRecheck(){ const D = app.draft; if (D && D.stage === 'recheck'){ importRun++; D.stage = 'approve'; saveDraft(); } },
+  approveYears(){ const D = app.draft; let n = 0;
+    D.songs.forEach(x => { if (x.checked && x.accept && x.found != null && x.found !== x.year){ x.year = x.found; x.note = ''; n++; } delete x.found; delete x.foundNote; delete x.checked; delete x.accept; });
+    D.stage = 'review'; app.draftMsg = { kind: 'good', text: plural(n, 'year') + ' updated. Press Save to keep the changes.' }; saveDraft(); window.scrollTo(0, 0); },
+  keepYears(){ const D = app.draft; D.songs.forEach(x => { delete x.found; delete x.foundNote; delete x.checked; delete x.accept; }); D.stage = 'review'; saveDraft(); },
   flagView(v){ app.flagView = app.flagView === v ? '' : v; window.scrollTo(0, 0); },
   dropSong(i){ const s = app.draft.songs[+i]; s.on = !s.on; saveDraft(); },
   editList(id){ const l = myLists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { listId: id, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.flagView = ''; app.screen = 'import'; window.scrollTo(0, 0); },
@@ -917,6 +944,32 @@ function vImport(){
   if (!D){ app.screen = 'library'; return vLibrary(); }
   const head = `<div class="page-head"><h1>${D.listId || D.sheetId ? 'Edit playlist' : 'New playlist'}</h1><button class="btn ghost small" data-act="cancelDraft">Cancel</button></div>`;
   if (D.stage === 'fetch') return head + `<section class="panel"><p>Reading the playlist from YouTube… ${D.done ? plural(D.done, 'song') : ''}</p></section>`;
+  if (D.stage === 'recheck'){
+    const n = D.total || 1;
+    return head + `<section class="panel"><h2>Rechecking years</h2>
+      <p>${D.done} of ${n} songs</p><div class="bar"><span style="width:${Math.round(D.done / n * 100)}%"></span></div>
+      <p class="muted small">Nothing changes until you approve. About one song a second, so this takes ${Math.max(1, Math.round((n - D.done) / 60))} min. Keep this screen open.</p>
+      <div class="row"><button class="btn ghost small" data-act="stopRecheck">Stop and review what we have</button></div></section>`;
+  }
+  if (D.stage === 'approve'){
+    const done = D.songs.filter(x => x.on && x.checked);
+    const diff = done.filter(x => x.found != null && x.found !== x.year);
+    const same = done.filter(x => x.found === x.year).length, none = done.filter(x => x.found == null).length;
+    const nAcc = diff.filter(x => x.accept).length;
+    return head + `<section class="panel"><h2>Approve new years</h2>
+      <p class="small">${plural(done.length, 'song')} rechecked: <b>${diff.length} with a different year</b>, ${same} unchanged${none ? `, ${none} not found (kept as they are)` : ''}.</p>
+      ${diff.length ? `<p class="muted small">Untick any change you don't want. Tap Play to listen if you're unsure.</p>` : ''}
+    </section>
+    ${diff.length ? `<div class="erows">${diff.map(x => { const i = D.songs.indexOf(x); return `<div class="erow ${x.accept ? 'flag' : 'off'}">
+      <label class="echk"><input type="checkbox" data-acc="${i}" ${x.accept ? 'checked' : ''}>
+        <span><b>${esc(x.artist)} — ${esc(x.title)}</b><br><span class="yrchg">${x.year || '?'} → <b>${x.found}</b></span></span></label>
+      ${x.foundNote ? `<p class="small muted">${esc(x.foundNote)}</p>` : ''}
+      <div class="ebtns"><a class="btn ghost small" href="${esc(songUrl(x))}" target="_blank" rel="noopener">Play</a></div></div>`; }).join('')}</div>` : ''}
+    <section class="panel"><div class="row">
+      ${diff.length ? `<button class="btn primary big" data-act="approveYears">Use ${plural(nAcc, 'new year')}</button>` : ''}
+      <button class="btn ${diff.length ? 'ghost' : 'primary'}" data-act="keepYears">${diff.length ? 'Keep all current years' : 'Back to the playlist'}</button></div>
+      <p class="muted small">Approved years go into the playlist; it is saved for everyone only when you press Save.</p></section>`;
+  }
   if (D.stage === 'years'){
     const n = D.total || D.songs.length;
     return head + `<section class="panel"><h2>Looking up release years</h2>
@@ -959,6 +1012,7 @@ function vImport(){
     <section class="panel">
       ${dm ? `<div class="note ${dm.kind}">${esc(dm.text)}</div>` : ''}
       ${app.adminPw && !D.listId ? `<div class="row"><button class="btn small ${D.main ? 'on' : 'ghost'}" data-act="draftMain" aria-pressed="${!!D.main}">${D.main ? '✓ ' : ''}Main playlist (always available)</button></div>` : ''}
+      ${app.adminPw ? `<div class="row"><button class="btn ghost" data-act="recheck">Recheck all years</button><span class="muted small">Looks every song up again with the names as they are now. You approve each change.</span></div>` : ''}
       <div class="row"><button class="btn primary big" data-act="saveDraft">${D.sheetId ? 'Save changes for everyone' : app.adminPw && D.main ? 'Save as main playlist' : SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
     </section>`;
 }
@@ -1144,6 +1198,9 @@ document.addEventListener('click', e => {
   render();
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.acc != null && app.draft){
+    const x = app.draft.songs[+e.target.dataset.acc]; x.accept = e.target.checked; saveDraft(); render(); return;
+  }
   if (e.target.id === 'csvFile'){
     const input = e.target, file = input.files && input.files[0]; if (!file) return;
     const name = newName();
@@ -1221,7 +1278,7 @@ function boot(){
   if (app.game && app.game.phase !== 'over' && store.get('nd_screen', null) === 'game') app.screen = 'game';
   const d = store.get('nd_draft', null);
   if (d && d.songs) d.songs.forEach(x => { if (x.note && x.note.startsWith('Check artist and title.')){ x.nameNote = 'Artist and title guessed from the video title.'; x.note = x.note.slice(23).trim(); } });
-  if (d && d.songs && d.songs.length){ if (d.stage !== 'review') d.stage = 'review'; app.draft = d; if (app.screen !== 'game') app.screen = 'import'; }
+  if (d && d.songs && d.songs.length){ if (d.stage === 'recheck') d.stage = 'approve'; else if (d.stage !== 'review' && d.stage !== 'approve') d.stage = 'review'; app.draft = d; if (app.screen !== 'game') app.screen = 'import'; }
   fixSel();
   render();
 }
