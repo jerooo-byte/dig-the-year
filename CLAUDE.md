@@ -11,11 +11,10 @@ Private use only (one family/friend group), shared by link. Not commercial.
 - The whole game is one self-contained file: `index.html` (plain HTML/CSS/JavaScript, no framework, no build step).
 - Hosted on GitHub Pages: https://jerooo-byte.github.io/dig-the-year/ (repo jerooo-byte/dig-the-year, branch main, root).
 - External script: `qrcodejs` 1.0.0 from cdnjs. Fonts: Unbounded + DM Sans from Google Fonts.
-- v1 was built and published as a private claude.ai artifact. The artifact sandbox blocked fetching other sites, so songs are imported by **pasting rows or uploading a CSV**, not read live from Google Sheets.
-- Artifact-only code (`window.claude.hot` hooks, `window.__nd` debug export, claude meta tag) was removed on 2026-11-04 for standalone hosting.
-- Songs can load from a **published Google Sheet CSV link** (Library screen). The link is stored in `nd_sheet` and re-read silently every time the app opens; a failed or empty load keeps the current library. Paste/upload remain as fallback.
-- **Playlist editing** (added 2026-11-04): the Library screen is now called **Playlists** (home button and setup section too). Tapping a playlist opens an editor: tick/untick which songs play in it, and fix a song's year, YouTube link or start second (seconds or m:ss; opens via `?t=`). Edits are stored as local overrides in `nd_edits`, keyed by lower-cased `artist|title`, applied on top of `lib.songs` (which stays exactly what was imported). So they survive the silent Sheet reload, but are per device. "Your edits" panel offers Download CSV / Copy for Sheet (full library with edits) to make them permanent in the Sheet, and Remove all edits. A song unticked from every playlist it was in is also left out of "All songs". Changing a link carries over its played status.
-- Storage is `localStorage` keys `nd_lib`, `nd_history`, `nd_failed`, `nd_setup`, `nd_game`, `nd_sound`, `nd_screen`, `nd_sheet`, `nd_edits`. Storage is per web address, so moving hosts starts fresh.
+- v1 was built and published as a private claude.ai artifact; artifact-only code was removed on 2026-11-04 for standalone hosting.
+- **Read-only song library** (2026-11-04, replaces the paste/upload import and the in-app playlist editor): nobody can change songs or playlists in the app. The only place to edit is the owner's Google Sheet, protected by Google's own sharing. Its published CSV link is hard-coded as `SHEET_URL` in `index.html`; the app re-reads it on every open and caches the last good copy in `nd_lib`. While `SHEET_URL` is empty, or the Sheet has never loaded, the built-in list (`BUILTIN_SONGS`, the 200-song Greatest Hip-Hop list) plays. A static site cannot lock anything in its own code, so keeping the app read-only and edits in the Sheet is the actual restriction; any write-back to the Sheet (e.g. an "Anyone" Apps Script) would reopen it.
+- The Playlists screen shows playlist names and counts (no song list, so years aren't spoiled), rows the Sheet load skipped, and "Songs that didn't play".
+- Storage is `localStorage` keys `nd_lib`, `nd_failed`, `nd_setup`, `nd_game`, `nd_sound`, `nd_screen`. Old keys `nd_history`, `nd_edits`, `nd_sheet` are no longer read. Storage is per web address, so moving hosts starts fresh.
 
 ## Next planned steps
 
@@ -68,11 +67,12 @@ No open steps left from v1.
 - `year` = original release year (4 digits), curated by hand — YouTube upload dates are wrong for this.
 - `start_sec` = optional second to start the video at (adds `?t=` to the link).
 - `playlists` = comma-separated playlist names, e.g. `80s, Rock, Party`. A song can be in many playlists. New names create playlists automatically.
-- Bulk import = paste rows / upload CSV. Data is cleaned before import; no YouTube-playlist import needed.
+- `start_sec` accepts seconds (`90`) or m:ss (`1:30`).
+- Songs and playlists are edited only in the Sheet by its owner; the app is read-only.
 - Bad rows (missing year, non-YouTube link, duplicate video) are skipped and listed with row numbers.
 - At game setup, select one or more playlists; merged, duplicates removed.
-- **Played songs are remembered across games and across all playlists** on the device, with a "Reset play history" button.
-- Warn at setup if the selection has too few unplayed songs for the number of players (~15 per player). When everything is played, offer "Start over with these playlists" or pick others.
+- **No play history** (changed 2026-11-04 at the user's request): every game shuffles the whole selection, so each song has the same chance to come up; no song repeats within a game.
+- Warn at setup if the selection has too few songs for the number of players (~15 per player).
 
 ### 7. Screens and devices
 - Must work on iPad, laptop and phone.
