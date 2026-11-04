@@ -287,7 +287,7 @@ function importText(text){
      repo owner can change them (GitHub write access is the lock). Cached in nd_admin for offline starts.
    - Player playlists: imported from a YouTube playlist on a device and saved in nd_mylists, then added to
      the shared list (below) so every device sees them. A local copy keeps working if sharing fails. */
-const YT_API_KEY = '';           // YouTube Data API v3 key, restricted to the site's address in Google Cloud.
+const YT_API_KEY = 'AIzaSyAxh7ElyazVLt_zKpOyPuAcFje3btG8P98';           // YouTube Data API v3 key, restricted to the site's address in Google Cloud.
 const ADMIN_DIR = 'playlists/';
 let admin = store.get('nd_admin', null) || { lists: [], problems: [], at: 0 };
 let myLists = store.get('nd_mylists', []);
