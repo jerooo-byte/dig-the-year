@@ -88,12 +88,16 @@ input.sheet{width:100%;background:var(--surface);border:1.5px solid var(--line);
 .lname span{color:var(--muted);font-size:14px}
 .bar{height:10px;border-radius:99px;background:var(--surface);overflow:hidden}
 .bar span{display:block;height:100%;background:var(--accent)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .linkbtn{appearance:none;border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
 /* Import check screen */
 .erows{display:flex;flex-direction:column;gap:8px}
 .erow{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--good)}
 .erow.flag{border-left-color:var(--accent)}
 .erow.off{opacity:.5;border-left-color:var(--line)}
+.echk{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.echk input{width:24px;height:24px;accent-color:var(--accent);flex:none;margin:2px 0 0}
+.yrchg{font-family:var(--display);font-size:18px}
 .enote{color:var(--accent);font-size:14px;font-weight:700}
 .eraw{overflow-wrap:anywhere}
 .efields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 80px 120px;gap:8px 10px}
@@ -405,9 +409,10 @@ async function lookupYear(s){
       j = await r.json();
     }catch(e){ await sleep(1000); }
   }
-  if (!j) return { year: s.upYear, note: 'Year lookup failed, so this is the YouTube upload year.' };
+  const noYear = why => s.upYear ? { year: s.upYear, note: why + ', so this is the YouTube upload year.' } : { year: null, note: why + '. Type the year in.' };
+  if (!j) return noYear('Year lookup failed');
   const years = (j.recordings || []).filter(r => r.score >= 90 && r['first-release-date']).map(r => +r['first-release-date'].slice(0, 4)).filter(y => y >= 1900);
-  if (!years.length) return { year: s.upYear, note: 'Not found in the music database, so this is the YouTube upload year.' };
+  if (!years.length) return noYear('Not found in the music database');
   const year = Math.min(...years);
   const count = {}; years.forEach(y => count[y] = (count[y] || 0) + 1);
   const common = +Object.keys(count).sort((a, b) => count[b] - count[a])[0];
@@ -419,11 +424,12 @@ async function lookupYear(s){
 const songUrl = s => 'https://youtu.be/' + s.id + (s.start ? '?t=' + s.start : '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let importRun = 0;
-async function startImport(url){
+/* New playlist from a YouTube playlist link. The name is asked for up front and can differ from YouTube's. */
+async function startImport(url, name){
   const pid = ytPlaylistId(url);
   if (!pid){ app.impMsg = 'That is not a YouTube playlist link. Open the playlist in YouTube, tap Share and copy the link (it contains "list=").'; return; }
   const run = ++importRun;
-  app.draftMsg = null; app.draft = { name: '', url, songs: [], stage: 'fetch', done: 0, main: !!app.adminPw };
+  app.draftMsg = null; app.flagView = ''; app.draft = { name, url, songs: [], stage: 'fetch', done: 0, main: !!app.adminPw };
   app.impMsg = null; app.screen = 'import'; render();
   let items;
   try{ items = await ytFetchPlaylist(pid, n => { if (run !== importRun) return; app.draft.done = n; render(); }); }
@@ -431,17 +437,69 @@ async function startImport(url){
   if (run !== importRun) return;
   if (!items.length){ app.draft = null; app.screen = 'library'; app.impMsg = 'That playlist has no playable videos.'; render(); return; }
   const D = app.draft;
-  D.songs = items.map(it => { const t = splitTitle(it.raw, it.channel); return { id: it.id, artist: t.artist, title: t.title, year: it.upYear, start: 0, upYear: it.upYear, raw: it.raw, note: t.sure ? '' : 'Check artist and title.', on: true }; });
-  D.stage = 'years'; D.done = 0; saveDraft(); render();
-  for (const s of D.songs){
+  D.songs = items.map(it => { const t = splitTitle(it.raw, it.channel); return { id: it.id, artist: t.artist, title: t.title, year: it.upYear, start: 0, upYear: it.upYear, raw: it.raw, nameNote: t.sure ? '' : 'Artist and title guessed from the video title.', note: '', on: true, look: true }; });
+  await lookupYears(D, run);
+}
+/* New playlist from a CSV file: artist, title, youtube_link required; year and start_sec optional.
+   Rows without a year get the same release-year lookup as a YouTube import. */
+async function startCsv(text, name, keep){
+  const rows = parseTable(text).map((r, i) => (r.rowNo = i + 1, r)).filter(r => r.some(c => String(c).trim() !== ''));
+  const fail = msg => { app.impMsg = msg; render(); };
+  if (rows.length < 2) return fail('That file has no songs. The first row must be the column names, then one song per row.');
+  const hdr = rows[0].map(norm), col = {};
+  for (const k in HEAD){ const i = hdr.findIndex(h => HEAD[k].includes(h)); if (i >= 0) col[k] = i; }
+  const missing = ['artist', 'title', 'link'].filter(k => col[k] == null);
+  if (missing.length) return fail('The first row needs the column names artist, title and youtube_link (year and start_sec are optional). Missing: ' + missing.map(k => k === 'link' ? 'youtube_link' : k).join(', ') + '.');
+  const songs = [], skipped = [], seen = {};
+  for (const r of rows.slice(1)){
+    const g = k => col[k] == null ? '' : String(r[col[k]] ?? '').trim();
+    const artist = g('artist'), title = g('title'), id = ytId(g('link')), yr = g('year');
+    if (!artist || !title){ skipped.push('Row ' + r.rowNo + ': missing artist or title'); continue; }
+    if (!id){ skipped.push('Row ' + r.rowNo + ': ' + artist + ' — ' + title + ': not a YouTube link'); continue; }
+    if (seen[id]){ skipped.push('Row ' + r.rowNo + ': ' + artist + ' — ' + title + ': same video as row ' + seen[id]); continue; }
+    seen[id] = r.rowNo;
+    const year = /^\d{4}$/.test(yr) && +yr >= 1900 && +yr <= 2100 ? +yr : null;
+    songs.push({ id, artist, title, year, start: parseStart(g('start')) || 0, upYear: null, note: yr && !year ? 'The file said "' + yr + '", which is not a year.' : '', on: true, look: !year });
+  }
+  if (!songs.length) return fail('No usable songs in that file. ' + skipped.slice(0, 3).join('; '));
+  const run = ++importRun;
+  app.draftMsg = null; app.impMsg = null; app.flagView = '';
+  /* keep = { sheetId, listId, main } when an admin replaces the songs of an existing playlist from a CSV. */
+  app.draft = Object.assign({ name, songs, skipped, stage: 'review', done: 0, main: !!app.adminPw }, keep || {});
+  app.screen = 'import'; window.scrollTo(0, 0);
+  await lookupYears(app.draft, run);
+}
+/* Look up the release year of every draft song marked look, about one a second (MusicBrainz's limit). */
+/* Admin: look every kept song up again with its current artist/title. Results are only proposals
+   (s.found, s.foundNote); nothing changes until the admin approves them on the next screen. */
+async function recheckYears(D){
+  const run = ++importRun;
+  const todo = D.songs.filter(s => s.on);
+  todo.forEach(s => { delete s.found; delete s.foundNote; s.checked = false; });
+  D.stage = 'recheck'; D.done = 0; D.total = todo.length; saveDraft(); render();
+  for (const s of todo){
+    if (run !== importRun || D.stage !== 'recheck') return;
+    const t0 = Date.now();
+    const r = await lookupYear(Object.assign({}, s, { upYear: null }));
+    if (run !== importRun || D.stage !== 'recheck') return;
+    s.found = r.year; s.foundNote = r.note; s.checked = true; s.accept = r.year != null && r.year !== s.year;
+    D.done++; saveDraft(); render();
+    await sleep(Math.max(0, 1100 - (Date.now() - t0)));
+  }
+  if (run === importRun && D.stage === 'recheck'){ D.stage = 'approve'; saveDraft(); render(); }
+}
+async function lookupYears(D, run){
+  const todo = D.songs.filter(s => s.look);
+  if (!todo.length){ D.stage = 'review'; saveDraft(); render(); return; }
+  D.stage = 'years'; D.done = 0; D.total = todo.length; saveDraft(); render();
+  for (const s of todo){
     if (run !== importRun || D.stage !== 'years') return;
     const t0 = Date.now();
     const r = await lookupYear(s);
-    if (run !== importRun) return;
-    if (D.stage !== 'years') return;
-    s.year = r.year; if (r.note) s.note = (s.note ? s.note + ' ' : '') + r.note;
+    if (run !== importRun || D.stage !== 'years') return;
+    s.year = r.year; s.look = false; if (r.note) s.note = (s.note ? s.note + ' ' : '') + r.note;
     D.done++; saveDraft(); render();
-    await sleep(Math.max(0, 1100 - (Date.now() - t0)));   // MusicBrainz allows about 1 request a second
+    await sleep(Math.max(0, 1100 - (Date.now() - t0)));
   }
   if (run === importRun && D.stage === 'years'){ D.stage = 'review'; saveDraft(); render(); }
 }
@@ -649,25 +707,53 @@ const A = {
   finish(){ app.game = null; app.screen = 'home'; },
   clearFailed(){ failed = []; store.set('nd_failed', failed); },
   /* playlists */
-  importYt(){ const box = document.getElementById('ytUrl'); app.ytUrl = box ? box.value : ''; startImport(app.ytUrl); return 'keep'; },
-  stopLookup(){ const D = app.draft; if (!D || D.stage !== 'years') return; D.songs.slice(D.done).forEach(x => { x.note = (x.note ? x.note + ' ' : '') + 'Not looked up, so this is the YouTube upload year.'; }); D.stage = 'review'; saveDraft(); },
+  importYt(){ const box = document.getElementById('ytUrl'); app.ytUrl = box ? box.value : ''; const name = newName(); if (name) startImport(app.ytUrl, name); else render(); return 'keep'; },
+  stopLookup(){ const D = app.draft; if (!D || D.stage !== 'years') return; D.songs.filter(x => x.look).forEach(x => { x.look = false; x.note = (x.note ? x.note + ' ' : '') + (x.upYear ? 'Not looked up, so this is the YouTube upload year.' : 'Not looked up. Type the year in.'); }); D.stage = 'review'; saveDraft(); },
   cancelDraft(){ importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library'; },
-  flagged(){ app.onlyFlagged = !app.onlyFlagged; },
+  exportCsv(key){ const l = allLists().find(x => x.key === key); if (l) downloadCsv(l.name, l.songs); },
+  exportDraft(){ const D = app.draft; downloadCsv(((document.getElementById('dName') || {}).value || D.name || 'playlist').trim(), D.songs.filter(x => x.on)); },
+  recheck(){ if (app.adminPw && app.draft) recheckYears(app.draft); return 'keep'; },
+  stopRecheck(){ const D = app.draft; if (D && D.stage === 'recheck'){ importRun++; D.stage = 'approve'; saveDraft(); } },
+  approveYears(){ const D = app.draft; let n = 0;
+    D.songs.forEach(x => { if (x.checked && x.accept && x.found != null && x.found !== x.year){ x.year = x.found; x.note = ''; n++; } delete x.found; delete x.foundNote; delete x.checked; delete x.accept; });
+    D.stage = 'review'; app.draftMsg = { kind: 'good', text: plural(n, 'year') + ' updated. Press Save to keep the changes.' }; saveDraft(); window.scrollTo(0, 0); },
+  keepYears(){ const D = app.draft; D.songs.forEach(x => { delete x.found; delete x.foundNote; delete x.checked; delete x.accept; }); D.stage = 'review'; saveDraft(); },
+  flagView(v){ app.flagView = app.flagView === v ? '' : v; window.scrollTo(0, 0); },
   dropSong(i){ const s = app.draft.songs[+i]; s.on = !s.on; saveDraft(); },
-  editList(id){ const l = myLists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { listId: id, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
-  copyList(id){ const l = shared.lists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { name: l.name + ' (fixed)', songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
+  editList(id){ const l = myLists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { listId: id, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.flagView = ''; app.screen = 'import'; window.scrollTo(0, 0); },
+  copyList(id){ const l = shared.lists.find(x => x.id === id); if (!l) return; app.draftMsg = null; app.draft = { name: l.name + ' (fixed)', songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.flagView = ''; app.screen = 'import'; window.scrollTo(0, 0); },
   delList(id){ if (app.confirm !== 'del:' + id){ app.confirm = 'del:' + id; return 'keep'; } myLists = myLists.filter(l => l.id !== id); saveMine(); app.setup.sel = app.setup.sel.filter(k => k !== 'm:' + id); fixSel(); },
   shareList(id){ const l = myLists.find(x => x.id === id); if (l) shareOne(l); return 'keep'; },
   saveDraft(){ saveDraftList(); return 'keep'; },
   adminAsk(){ app.adminAsk = !app.adminAsk; app.adminMsg = null; },
   adminLogin(){ adminLogin(((document.getElementById('adminPw') || {}).value || '').trim()); return 'keep'; },
   adminLogout(){ app.adminPw = null; try{ sessionStorage.removeItem('nd_admin_pw'); }catch(e){} app.libMsg = { kind: 'good', text: 'Admin mode is off.' }; },
-  sEdit(id){ const l = shared.lists.find(x => x.id === id); if (!l || !app.adminPw) return; app.draftMsg = null; app.draft = { sheetId: id, main: l.main, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
+  sEdit(id){ const l = shared.lists.find(x => x.id === id); if (!l || !app.adminPw) return; app.draftMsg = null; app.draft = { sheetId: id, main: l.main, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.flagView = ''; app.screen = 'import'; window.scrollTo(0, 0); },
   sDel(id){ if (app.confirm !== 'sdel:' + id){ app.confirm = 'sdel:' + id; return 'keep'; } const l = shared.lists.find(x => x.id === id); adminDo('Deleting "' + (l ? l.name : 'playlist') + '"', () => api('delete', { id })); },
   sMain(id){ const l = shared.lists.find(x => x.id === id); if (!l) return; adminDo(l.main ? 'Moving "' + l.name + '" to player playlists' : 'Making "' + l.name + '" a main playlist', () => api('setMain', { id, main: !l.main })); return 'keep'; },
   copyFile(name){ const l = admin.lists.find(x => x.name === name); if (!l) return; adminDo('Copying "' + name + '" into the playlist store', () => api('add', { name, songs: songsOut(l.songs), main: true })); return 'keep'; },
   draftMain(){ app.draft.main = !app.draft.main; saveDraft(); },
 };
+/* Admin export: a CSV with the same columns the CSV import reads, so it can be edited in a spreadsheet
+   and imported again. The BOM makes Excel read accents correctly. */
+function downloadCsv(name, songs){
+  const cell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  const rows = [['artist', 'title', 'year', 'youtube_link', 'start_sec'], ...songs.map(x => [x.artist, x.title, x.year || '', 'https://youtu.be/' + x.id, x.start || 0])];
+  const file = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'playlist') + '.csv';
+  try{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = file; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }catch(e){ app.libMsg = { kind: 'bad', text: 'This browser blocked the download.' }; render(); }
+}
+/* The name typed in "New playlist"; asks for it if empty. */
+function newName(){
+  const v = ((document.getElementById('newName') || {}).value || '').trim();
+  app.newName = v;
+  if (!v){ app.impMsg = 'First type a name for the new playlist.'; const el = document.getElementById('newName'); if (el) el.focus(); }
+  return v;
+}
 /* Check the draft, save it on this device, then add it to the shared list. */
 async function saveDraftList(){
   const D = app.draft; if (!D) return;
@@ -684,7 +770,7 @@ async function saveDraftList(){
       if (D.sheetId) await api('update', { id: D.sheetId, name, songs: clean, main: !!D.main });
       else await api('add', { name, songs: clean, main: true });
     }catch(e){ app.draftMsg = { kind: 'bad', text: e.message === 'password' || e.message === 'locked' ? 'Admin sign-in was refused. Go back, sign in again, then save.' : 'Could not save to the playlist store. Try again.' }; render(); return; }
-    importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library';
+    importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library'; app.newName = ''; app.ytUrl = '';
     await loadShared();
     app.libMsg = { kind: 'good', text: '"' + name + '" is saved for every device.' }; render(); return;
   }
@@ -692,7 +778,7 @@ async function saveDraftList(){
   if (list){ list.name = uniqueName(name, list.id); list.songs = clean; }
   else { list = { id: newId(), name: uniqueName(name), created: new Date().toISOString(), songs: clean }; myLists.unshift(list); }
   saveMine();
-  importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library';
+  importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library'; app.newName = ''; app.ytUrl = '';
   if (!app.setup.sel.includes('m:' + list.id)) app.setup.sel.push('m:' + list.id);
   if (SHARED_URL) await shareOne(list); else { app.libMsg = { kind: 'good', text: 'Saved "' + list.name + '" on this device.' }; render(); }
 }
@@ -816,6 +902,7 @@ function vLibrary(){
   const row = (l, btns) => `<div class="lrow"><div class="lname"><b>${esc(l.name)}</b><span>${plural(l.songs.length, 'song')}</span></div><div class="ebtns">${btns}</div></div>`;
   const delBtn = (act, id, conf) => `<button class="btn ${app.confirm === conf ? 'warn' : 'ghost'} small" data-act="${act}" data-v="${esc(id)}">${app.confirm === conf ? 'Tap again to delete' : 'Delete'}</button>`;
   const adminBtns = l => l.file ? '' : `<button class="btn ghost small" data-act="sEdit" data-v="${esc(l.list.id)}">Edit</button>
+       <button class="btn ghost small" data-act="exportCsv" data-v="${esc(l.key)}">Export CSV</button>
        <button class="btn ghost small" data-act="sMain" data-v="${esc(l.list.id)}">${l.list.main ? 'Make player playlist' : 'Make main'}</button>
        ${delBtn('sDel', l.list.id, 'sdel:' + l.list.id)}`;
   const L = allLists(), mains = L.filter(l => l.kind === 'admin'), players = L.filter(l => l.kind === 'shared'), local = L.filter(l => l.kind === 'mine');
@@ -840,13 +927,21 @@ function vLibrary(){
       ${SHARED_URL ? `<button class="btn ghost small" data-act="shareList" data-v="${esc(l.list.id)}">Share with everyone</button>` : ''}
       ${delBtn('delList', l.list.id, 'del:' + l.list.id)}`)).join('')}</div>
   </section>` : ''}
-  <section class="panel"><h2>Import from YouTube</h2>
-    ${YT_API_KEY ? `<p class="small">Paste the link of a YouTube playlist (Public or Unlisted). The app reads the songs and looks up each one's release year. You then check the years before saving.</p>
-      <label for="ytUrl" class="small muted">YouTube playlist link</label>
-      <input type="url" id="ytUrl" class="sheet" value="${esc(app.ytUrl || '')}" placeholder="https://www.youtube.com/playlist?list=…" autocomplete="off" spellcheck="false">
-      <div class="row"><button class="btn primary" data-act="importYt">Import playlist</button></div>
-      ${app.impMsg ? `<div class="note bad">${esc(app.impMsg)}</div>` : ''}`
-    : `<p class="muted small">The importer isn't switched on yet: the game's owner still needs to add a YouTube key.</p>`}
+  <section class="panel"><h2>New playlist</h2>
+    <label for="newName" class="small muted">1. Name of the new playlist</label>
+    <input type="text" id="newName" class="sheet" maxlength="60" value="${esc(app.newName || '')}" placeholder="e.g. Summer party">
+    <p class="small muted" style="margin-top:6px">2. Add the songs, either way:</p>
+    <div class="block"><h3>From a YouTube playlist</h3>
+      ${YT_API_KEY ? `<p class="muted small">Public or Unlisted. The app reads the songs and looks up each release year; you check the years before saving.</p>
+        <input type="url" id="ytUrl" class="sheet" value="${esc(app.ytUrl || '')}" placeholder="https://www.youtube.com/playlist?list=…" autocomplete="off" spellcheck="false" aria-label="YouTube playlist link">
+        <div class="row"><button class="btn primary" data-act="importYt">Import from YouTube</button></div>`
+      : `<p class="muted small">Not switched on yet: the game's owner still needs to add a YouTube key.</p>`}
+    </div>
+    <div class="block"><h3>From a CSV file</h3>
+      <p class="muted small">One song per row. The first row holds the column names <b>artist, title, youtube_link</b>, plus <b>year</b> and <b>start_sec</b> if you have them. Missing years are looked up for you.</p>
+      <div class="row"><label class="btn" for="csvFile">Choose CSV file</label><input type="file" id="csvFile" accept=".csv,.tsv,.txt,text/csv" class="vh"></div>
+    </div>
+    ${app.impMsg ? `<div class="note bad">${esc(app.impMsg)}</div>` : ''}
   </section>
   <section class="panel"><h2>Songs that didn't play</h2>
     ${failed.length ? `<p class="muted small">The DJ marked these as broken during games on this device.</p>
@@ -866,18 +961,49 @@ function vImport(){
   if (!D){ app.screen = 'library'; return vLibrary(); }
   const head = `<div class="page-head"><h1>${D.listId || D.sheetId ? 'Edit playlist' : 'New playlist'}</h1><button class="btn ghost small" data-act="cancelDraft">Cancel</button></div>`;
   if (D.stage === 'fetch') return head + `<section class="panel"><p>Reading the playlist from YouTube… ${D.done ? plural(D.done, 'song') : ''}</p></section>`;
+  if (D.stage === 'recheck'){
+    const n = D.total || 1;
+    return head + `<section class="panel"><h2>Rechecking years</h2>
+      <p>${D.done} of ${n} songs</p><div class="bar"><span style="width:${Math.round(D.done / n * 100)}%"></span></div>
+      <p class="muted small">Nothing changes until you approve. About one song a second, so this takes ${Math.max(1, Math.round((n - D.done) / 60))} min. Keep this screen open.</p>
+      <div class="row"><button class="btn ghost small" data-act="stopRecheck">Stop and review what we have</button></div></section>`;
+  }
+  if (D.stage === 'approve'){
+    const done = D.songs.filter(x => x.on && x.checked);
+    const diff = done.filter(x => x.found != null && x.found !== x.year);
+    const same = done.filter(x => x.found === x.year).length, none = done.filter(x => x.found == null).length;
+    const nAcc = diff.filter(x => x.accept).length;
+    return head + `<section class="panel"><h2>Approve new years</h2>
+      <p class="small">${plural(done.length, 'song')} rechecked: <b>${diff.length} with a different year</b>, ${same} unchanged${none ? `, ${none} not found (kept as they are)` : ''}.</p>
+      ${diff.length ? `<p class="muted small">Untick any change you don't want. Tap Play to listen if you're unsure.</p>` : ''}
+    </section>
+    ${diff.length ? `<div class="erows">${diff.map(x => { const i = D.songs.indexOf(x); return `<div class="erow ${x.accept ? 'flag' : 'off'}">
+      <label class="echk"><input type="checkbox" data-acc="${i}" ${x.accept ? 'checked' : ''}>
+        <span><b>${esc(x.artist)} — ${esc(x.title)}</b><br><span class="yrchg">${x.year || '?'} → <b>${x.found}</b></span></span></label>
+      ${x.foundNote ? `<p class="small muted">${esc(x.foundNote)}</p>` : ''}
+      <div class="ebtns"><a class="btn ghost small" href="${esc(songUrl(x))}" target="_blank" rel="noopener">Play</a></div></div>`; }).join('')}</div>` : ''}
+    <section class="panel"><div class="row">
+      ${diff.length ? `<button class="btn primary big" data-act="approveYears">Use ${plural(nAcc, 'new year')}</button>` : ''}
+      <button class="btn ${diff.length ? 'ghost' : 'primary'}" data-act="keepYears">${diff.length ? 'Keep all current years' : 'Back to the playlist'}</button></div>
+      <p class="muted small">Approved years go into the playlist; it is saved for everyone only when you press Save.</p></section>`;
+  }
   if (D.stage === 'years'){
-    const n = D.songs.length;
+    const n = D.total || D.songs.length;
     return head + `<section class="panel"><h2>Looking up release years</h2>
       <p>${D.done} of ${n} songs</p><div class="bar"><span style="width:${Math.round(D.done / n * 100)}%"></span></div>
       <p class="muted small">About one song a second, so this takes ${Math.max(1, Math.round((n - D.done) / 60))} min. Keep this screen open.</p>
       <div class="row"><button class="btn ghost small" data-act="stopLookup">Stop and check what we have</button></div></section>`;
   }
-  const flagged = D.songs.filter(x => x.on && x.note).length;
-  const order = D.songs.map((x, i) => i).sort((a, b) => (!!D.songs[b].note - !!D.songs[a].note) || a - b);
-  const rows = order.filter(i => !app.onlyFlagged || D.songs[i].note).map(i => { const x = D.songs[i];
-    return `<div class="erow ${x.on ? '' : 'off'} ${x.note ? 'flag' : ''}" data-i="${i}">
-      ${x.note ? `<p class="enote">${esc(x.note)}</p>` : ''}
+  /* Two kinds of check: the name (artist/title guessed from a messy video title) and the year. */
+  const nameN = D.songs.filter(x => x.on && x.nameNote).length, yearN = D.songs.filter(x => x.on && x.note).length;
+  const flagged = D.songs.filter(x => x.on && (x.nameNote || x.note)).length;
+  const fv = app.flagView || '';
+  const show = x => fv === 'name' ? !!x.nameNote : fv === 'year' ? !!x.note : true;
+  const order = D.songs.map((x, i) => i).sort((a, b) => (!!(D.songs[b].note || D.songs[b].nameNote) - !!(D.songs[a].note || D.songs[a].nameNote)) || a - b);
+  const rows = order.filter(i => show(D.songs[i])).map(i => { const x = D.songs[i];
+    return `<div class="erow ${x.on ? '' : 'off'} ${x.note || x.nameNote ? 'flag' : ''}" data-i="${i}">
+      ${x.nameNote ? `<p class="enote">Name: ${esc(x.nameNote)}</p>` : ''}
+      ${x.note ? `<p class="enote">Year: ${esc(x.note)}</p>` : ''}
       ${x.raw ? `<p class="small muted eraw">YouTube: ${esc(x.raw)}</p>` : ''}
       <div class="efields">
         <label>Artist<input type="text" data-dr="artist" value="${esc(x.artist)}"></label>
@@ -892,13 +1018,20 @@ function vImport(){
   return head + `<section class="panel">
       <label for="dName" class="small muted">Playlist name</label>
       <input type="text" id="dName" class="sheet" maxlength="60" value="${esc(D.name)}" placeholder="e.g. Summer party">
-      <p class="small">${plural(D.songs.filter(x => x.on).length, 'song')}. ${flagged ? `<b>${flagged} need a check</b>: they're at the top with the reason. ` : 'Every year was found. Spot-check a few anyway. '}A wrong year spoils the game, so check what you're unsure of.</p>
-      ${flagged ? `<div class="row"><button class="btn ${app.onlyFlagged ? 'on' : 'ghost'} small" data-act="flagged" aria-pressed="${!!app.onlyFlagged}">Show only songs to check</button></div>` : ''}
+      <p class="small">${plural(D.songs.filter(x => x.on).length, 'song')}. ${flagged ? `<b>${flagged} need a check</b>: they're at the top with the reason. Fixing a name or year clears its flag. ` : 'Every year was found. Spot-check a few anyway. '}A wrong year spoils the game, so check what you're unsure of.</p>
+      ${D.skipped && D.skipped.length ? `<details class="small muted"><summary>${plural(D.skipped.length, 'row')} in the file skipped</summary><ul class="problems">${D.skipped.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
+      ${flagged ? `<div class="row">
+        ${nameN ? `<button class="btn ${fv === 'name' ? 'on' : 'ghost'} small" data-act="flagView" data-v="name" aria-pressed="${fv === 'name'}">Names to check · ${nameN}</button>` : ''}
+        ${yearN ? `<button class="btn ${fv === 'year' ? 'on' : 'ghost'} small" data-act="flagView" data-v="year" aria-pressed="${fv === 'year'}">Years to check · ${yearN}</button>` : ''}
+        ${fv ? `<button class="btn ghost small" data-act="flagView" data-v="">Show all songs</button>` : ''}</div>` : ''}
     </section>
     <div class="erows">${rows}</div>
     <section class="panel">
       ${dm ? `<div class="note ${dm.kind}">${esc(dm.text)}</div>` : ''}
       ${app.adminPw && !D.listId ? `<div class="row"><button class="btn small ${D.main ? 'on' : 'ghost'}" data-act="draftMain" aria-pressed="${!!D.main}">${D.main ? '✓ ' : ''}Main playlist (always available)</button></div>` : ''}
+      ${app.adminPw ? `<div class="row"><button class="btn ghost small" data-act="exportDraft">Export CSV</button><span class="muted small">Downloads the playlist as it is on this screen, to edit in a spreadsheet.</span></div>
+        <div class="row"><label class="btn ghost small" for="replaceCsv">Replace songs from CSV</label><input type="file" id="replaceCsv" accept=".csv,.tsv,.txt,text/csv" class="vh"><span class="muted small">Loads an edited CSV in place of the songs above. Missing years are looked up; nothing is stored until you Save.</span></div>` : ''}
+      ${app.adminPw ? `<div class="row"><button class="btn ghost" data-act="recheck">Recheck all years</button><span class="muted small">Looks every song up again with the names as they are now. You approve each change.</span></div>` : ''}
       <div class="row"><button class="btn primary big" data-act="saveDraft">${D.sheetId ? 'Save changes for everyone' : app.adminPw && D.main ? 'Save as main playlist' : SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
     </section>`;
 }
@@ -1084,19 +1217,47 @@ document.addEventListener('click', e => {
   render();
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.acc != null && app.draft){
+    const x = app.draft.songs[+e.target.dataset.acc]; x.accept = e.target.checked; saveDraft(); render(); return;
+  }
+  if (e.target.id === 'replaceCsv' && app.draft){
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const D = app.draft, name = ((document.getElementById('dName') || {}).value || D.name).trim();
+    const keep = { sheetId: D.sheetId, listId: D.listId, main: D.main };
+    const rd = new FileReader();
+    rd.onload = () => { app.impMsg = null; startCsv(String(rd.result), name, keep).then(() => { if (app.impMsg){ app.draftMsg = { kind: 'bad', text: app.impMsg }; app.impMsg = null; render(); } }); };
+    rd.readAsText(file);
+    return;
+  }
+  if (e.target.id === 'csvFile'){
+    const input = e.target, file = input.files && input.files[0]; if (!file) return;
+    const name = newName();
+    if (!name){ input.value = ''; render(); return; }
+    const rd = new FileReader();
+    rd.onload = () => startCsv(String(rd.result), name);
+    rd.onerror = () => { app.impMsg = 'Could not read that file.'; render(); };
+    rd.readAsText(file);
+    return;
+  }
   const t = e.target, f = t.dataset && t.dataset.dr; if (!f || !app.draft) return;
   const row = t.closest('[data-i]'), x = app.draft.songs[+row.dataset.i];
   if (f === 'year'){ const v = t.value.trim(); const ok = /^\d{4}$/.test(v) && +v >= 1900 && +v <= 2100; t.classList.toggle('bad', !ok); if (ok){ x.year = +v; x.note = ''; } }
   else if (f === 'start'){ const v = parseStart(t.value); if (v != null){ x.start = v; t.value = v; } else t.value = x.start || 0; }
-  else { x[f] = t.value; if (x.note === 'Check artist and title.') x.note = ''; }
+  else { x[f] = t.value; x.nameNote = ''; }
+  const left = (x.nameNote ? 1 : 0) + (x.note ? 1 : 0);
+  row.classList.toggle('flag', !!left);
+  row.querySelectorAll('.enote').forEach(p => { if ((p.textContent.startsWith('Name:') && !x.nameNote) || (p.textContent.startsWith('Year:') && !x.note)) p.remove(); });
   saveDraft();
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'adminPw'){ e.preventDefault(); A.adminLogin(); }
+  if (e.key === 'Enter' && e.target.id === 'newName'){ e.preventDefault(); const y = document.getElementById('ytUrl'); if (y) y.focus(); }
   if (e.key === 'Enter' && e.target.id === 'ytUrl'){ e.preventDefault(); A.importYt(); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'dName' && app.draft){ app.draft.name = e.target.value; return; }
+  if (e.target.id === 'newName'){ app.newName = e.target.value; return; }
+  if (e.target.id === 'ytUrl'){ app.ytUrl = e.target.value; return; }
   const i = e.target.dataset && e.target.dataset.name;
   if (i != null){ app.setup.players[+i].name = e.target.value; save(); }
 });
@@ -1144,7 +1305,8 @@ document.addEventListener('pointercancel', endDrag);
 function boot(){
   if (app.game && app.game.phase !== 'over' && store.get('nd_screen', null) === 'game') app.screen = 'game';
   const d = store.get('nd_draft', null);
-  if (d && d.songs && d.songs.length){ if (d.stage !== 'review') d.stage = 'review'; app.draft = d; if (app.screen !== 'game') app.screen = 'import'; }
+  if (d && d.songs) d.songs.forEach(x => { if (x.note && x.note.startsWith('Check artist and title.')){ x.nameNote = 'Artist and title guessed from the video title.'; x.note = x.note.slice(23).trim(); } });
+  if (d && d.songs && d.songs.length){ if (d.stage === 'recheck') d.stage = 'approve'; else if (d.stage !== 'review' && d.stage !== 'approve') d.stage = 'review'; app.draft = d; if (app.screen !== 'game') app.screen = 'import'; }
   fixSel();
   render();
 }
