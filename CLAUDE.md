@@ -12,9 +12,13 @@ Private use only (one family/friend group), shared by link. Not commercial.
 - Hosted on GitHub Pages: https://jerooo-byte.github.io/dig-the-year/ (repo jerooo-byte/dig-the-year, branch main, root).
 - External script: `qrcodejs` 1.0.0 from cdnjs. Fonts: Unbounded + DM Sans from Google Fonts.
 - v1 was built and published as a private claude.ai artifact; artifact-only code was removed on 2026-11-04 for standalone hosting.
-- **Read-only song library** (2026-11-04, replaces the paste/upload import and the in-app playlist editor): nobody can change songs or playlists in the app. The only place to edit is the owner's Google Sheet, protected by Google's own sharing. Its published CSV link is hard-coded as `SHEET_URL` in `index.html`; the app re-reads it on every open and caches the last good copy in `nd_lib`. While `SHEET_URL` is empty, or the Sheet has never loaded, the built-in list (`BUILTIN_SONGS`, the 200-song Greatest Hip-Hop list) plays. A static site cannot lock anything in its own code, so keeping the app read-only and edits in the Sheet is the actual restriction; any write-back to the Sheet (e.g. an "Anyone" Apps Script) would reopen it.
-- The Playlists screen shows playlist names and counts (no song list, so years aren't spoiled), rows the Sheet load skipped, and "Songs that didn't play".
-- Storage is `localStorage` keys `nd_lib`, `nd_failed`, `nd_setup`, `nd_game`, `nd_sound`, `nd_screen`. Old keys `nd_history`, `nd_edits`, `nd_sheet` are no longer read. Storage is per web address, so moving hosts starts fresh.
+- **Playlists** (redesigned 2026-11-04 with the user):
+  - **Playlist store** = a Google Sheet owned by the user, behind a Google Apps Script web app (`apps-script/shared-playlists.gs`, URL in `SHARED_URL` in `index.html`). One row per playlist: id | name | created | songs JSON | main. GET lists; POST `add` (anyone, player playlists only); `check`, `update`, `delete`, `setMain` and adding a main playlist need the admin password, which lives only in the script's Script properties (`ADMIN_PASSWORD`), never in the site code. 8 wrong passwords in 15 min lock admin for 15 min.
+  - **Main playlists** = store rows marked main, always available on every device. Admin mode (Playlists screen → Admin → password, kept in sessionStorage for that tab) can edit any playlist, delete, and switch main/player.
+  - **Player playlists**: anyone imports a YouTube playlist (paste link). The app reads it with the YouTube Data API (`YT_API_KEY`, restricted to the GitHub Pages address), splits "Artist - Title", looks up the earliest release year in MusicBrainz (about 1 request/second), flags doubtful years, and the player checks them on a review screen before saving. Saved playlists go to the store and show on every device; players can't edit or delete them, only "Copy and fix" into a new one. If publishing fails, the playlist stays on that device ("On this device only") with a "Share with everyone" retry.
+  - Repo files in `playlists/` (listed in `playlists/index.json`, CSV with the Sheet columns) are only a fallback while the store is off or unreachable; admin can "Copy in as main playlist".
+  - Nobody can change playlists without the password; years are checked by a person before a playlist is saved.
+- Storage is `localStorage` keys `nd_admin` (repo-file cache), `nd_shared` (store cache), `nd_mylists`, `nd_draft`, `nd_failed`, `nd_setup`, `nd_game`, `nd_sound`, `nd_screen`. Old keys `nd_lib`, `nd_history`, `nd_edits`, `nd_sheet` are no longer read. Storage is per web address, so moving hosts starts fresh.
 
 ## Next planned steps
 
@@ -62,15 +66,15 @@ No open steps left from v1.
 - If the songs run out: most cards wins, same tie-break.
 
 ### 6. Song library and playlists
-- Source of truth is a Google Sheet, one row per song. Columns (header row required, case-insensitive):
+- Source of truth is the playlist store (see Current state). Repo fallback files use these columns (header row required, case-insensitive):
   `artist | title | year | youtube_link | start_sec | playlists`
 - `year` = original release year (4 digits), curated by hand — YouTube upload dates are wrong for this.
 - `start_sec` = optional second to start the video at (adds `?t=` to the link).
 - `playlists` = comma-separated playlist names, e.g. `80s, Rock, Party`. A song can be in many playlists. New names create playlists automatically.
 - `start_sec` accepts seconds (`90`) or m:ss (`1:30`).
-- Songs and playlists are edited only in the Sheet by its owner; the app is read-only.
+- Main playlists: only the admin (password) changes them. Player playlists: anyone adds them from a YouTube playlist; only the admin edits or deletes them.
 - Bad rows (missing year, non-YouTube link, duplicate video) are skipped and listed with row numbers.
-- At game setup, select one or more playlists; merged, duplicates removed.
+- At game setup, select any mix of main and player playlists; merged, duplicates (same video) removed.
 - **No play history** (changed 2026-11-04 at the user's request): every game shuffles the whole selection, so each song has the same chance to come up; no song repeats within a game.
 - Warn at setup if the selection has too few songs for the number of players (~15 per player).
 

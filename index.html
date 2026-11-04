@@ -294,10 +294,15 @@ let myLists = store.get('nd_mylists', []);
 let failed = store.get('nd_failed', []);
 const saveMine = () => store.set('nd_mylists', myLists);
 
+/* Main playlists = the main rows of the playlist store (Sheet). The repo files in playlists/ are only a
+   fallback for when the store is switched off or has never loaded; in admin mode they can be copied in. */
+const storeOn = () => !!SHARED_URL && !!shared.at;
 function allLists(){
   const sharedIds = new Set(shared.lists.map(l => l.id));
-  return [...admin.lists.map(l => ({ key: 'a:' + l.name, name: l.name, songs: l.songs, kind: 'admin' })),
-          ...shared.lists.map(l => ({ key: 's:' + l.id, name: l.name, songs: l.songs, kind: 'shared', list: l })),
+  const sheetMain = shared.lists.filter(l => l.main), mainNames = new Set(sheetMain.map(l => l.name));
+  return [...sheetMain.map(l => ({ key: 's:' + l.id, name: l.name, songs: l.songs, kind: 'admin', list: l })),
+          ...(storeOn() ? [] : admin.lists).filter(l => !mainNames.has(l.name)).map(l => ({ key: 'a:' + l.name, name: l.name, songs: l.songs, kind: 'admin', file: true })),
+          ...shared.lists.filter(l => !l.main).map(l => ({ key: 's:' + l.id, name: l.name, songs: l.songs, kind: 'shared', list: l })),
           ...myLists.filter(l => !(l.sharedId && sharedIds.has(l.sharedId))).map(l => ({ key: 'm:' + l.id, name: l.name, songs: l.songs, kind: 'mine', list: l }))];
 }
 /* Union of the selected playlists, one entry per YouTube video (admin data wins on a clash). Every song in
@@ -310,11 +315,12 @@ function selectionSongs(sel){
 /* Keep the selection to playlists that exist; old saves used names or '__all'. Empty → all admin playlists. */
 function fixSel(){
   const keys = new Set(allLists().map(l => l.key));
-  let sel = (app.setup.sel || []).flatMap(x => x === '__all' ? admin.lists.map(l => 'a:' + l.name) : keys.has(x) ? [x] : keys.has('a:' + x) ? ['a:' + x] : []);
+  const byName = new Map(allLists().filter(l => l.kind === 'admin').map(l => [l.name, l.key]));
+  let sel = (app.setup.sel || []).flatMap(x => x === '__all' ? [...byName.values()] : keys.has(x) ? [x] : x.startsWith('a:') && byName.has(x.slice(2)) ? [byName.get(x.slice(2))] : byName.has(x) ? [byName.get(x)] : []);
   sel = [...new Set(sel)];
   // Until someone picks, the default follows what has loaded: every main playlist, else the first one there is.
   if (!sel.length || app.setup.selAuto){
-    sel = admin.lists.map(l => 'a:' + l.name);
+    sel = allLists().filter(l => l.kind === 'admin').map(l => l.key);
     if (!sel.length && allLists()[0]) sel = [allLists()[0].key];
     app.setup.selAuto = true;
   }
@@ -417,7 +423,7 @@ async function startImport(url){
   const pid = ytPlaylistId(url);
   if (!pid){ app.impMsg = 'That is not a YouTube playlist link. Open the playlist in YouTube, tap Share and copy the link (it contains "list=").'; return; }
   const run = ++importRun;
-  app.draftMsg = null; app.draft = { name: '', url, songs: [], stage: 'fetch', done: 0 };
+  app.draftMsg = null; app.draft = { name: '', url, songs: [], stage: 'fetch', done: 0, main: !!app.adminPw };
   app.impMsg = null; app.screen = 'import'; render();
   let items;
   try{ items = await ytFetchPlaylist(pid, n => { if (run !== importRun) return; app.draft.done = n; render(); }); }
@@ -467,15 +473,37 @@ function cleanList(o){
     if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id) || !(year >= 1900 && year <= 2100)) return;
     seen.add(id); songs.push({ id, artist: String(r.artist || '').slice(0, 200), title: String(r.title || '').slice(0, 200), year, start: Math.max(0, +r.start || 0) });
   });
-  return songs.length ? { id: String(o.id), name: String(o.name || 'Playlist').slice(0, 60), created: o.created || '', songs } : null;
+  return songs.length ? { id: String(o.id), name: String(o.name || 'Playlist').slice(0, 60), created: o.created || '', songs, main: o.main === true } : null;
 }
-async function publish(list){
-  const body = JSON.stringify({ name: list.name, songs: list.songs.map(s => ({ id: s.id, artist: s.artist, title: s.title, year: s.year, start: s.start || 0 })) });
-  // text/plain keeps this a "simple" request, so the browser sends it to Apps Script without a CORS preflight.
-  const r = await fetch(SHARED_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body });
+const songsOut = songs => songs.map(s => ({ id: s.id, artist: s.artist, title: s.title, year: s.year, start: s.start || 0 }));
+/* POST to the Apps Script. text/plain keeps it a "simple" request, so there is no CORS preflight. */
+async function api(action, data){
+  const body = Object.assign({ action }, data, app.adminPw ? { password: app.adminPw } : {});
+  const r = await fetch(SHARED_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
   const j = await r.json();
-  if (!j.ok) throw new Error(j.error || 'refused');
-  return j.id;
+  if (!j.ok){
+    if ((j.error === 'password' || j.error === 'locked') && action !== 'check'){ app.adminPw = null; try{ sessionStorage.removeItem('nd_admin_pw'); }catch(e){} }
+    throw new Error(j.error || 'refused');
+  }
+  return j;
+}
+async function publish(list, main){ return (await api('add', { name: list.name, songs: songsOut(list.songs), main: !!main })).id; }
+
+/* ---------- admin mode ----------
+   The password is checked by the Apps Script on every admin request (it is stored only in the script's
+   properties). The app keeps it for this browser tab only, so closing the tab signs out. */
+async function adminLogin(pw){
+  app.adminMsg = null;
+  if (!pw){ app.adminMsg = 'Type the admin password.'; render(); return; }
+  try{ app.adminPw = pw; await api('check', {}); try{ sessionStorage.setItem('nd_admin_pw', pw); }catch(e){} app.adminAsk = false; app.libMsg = { kind: 'good', text: 'Admin mode is on for this tab.' }; }
+  catch(e){ app.adminPw = null; app.adminMsg = e.message === 'locked' ? 'Too many wrong tries. Admin is locked for 15 minutes.' : e.message === 'password' ? 'Wrong password.' : 'Could not reach the playlist store. Check the internet connection.'; }
+  render();
+}
+async function adminDo(label, fn){
+  app.libMsg = { kind: '', text: label + '…' }; render();
+  try{ await fn(); await loadShared(); app.libMsg = { kind: 'good', text: label + ': done.' }; }
+  catch(e){ app.libMsg = { kind: 'bad', text: e.message === 'password' || e.message === 'locked' ? 'Admin sign-in expired or was refused. Sign in again.' : label + ' failed. Try again.' }; }
+  render();
 }
 
 function uniqueName(name, skipId){ let n = name, i = 2; while (myLists.some(l => l.name === n && l.id !== skipId)) n = name + ' (' + i++ + ')'; return n; }
@@ -487,7 +515,8 @@ const app = {
   setup: store.get('nd_setup', null) || defaultSetup(),
   game: store.get('nd_game', null),
   sound: store.get('nd_sound', true),
-  menu: false, confirm: null
+  menu: false, confirm: null,
+  adminPw: (() => { try{ return sessionStorage.getItem('nd_admin_pw'); }catch(e){ return null; } })()
 };
 let undoStack = [];
 function save(){ store.set('nd_setup', app.setup); store.set('nd_game', app.game); }
@@ -630,11 +659,14 @@ const A = {
   delList(id){ if (app.confirm !== 'del:' + id){ app.confirm = 'del:' + id; return 'keep'; } myLists = myLists.filter(l => l.id !== id); saveMine(); app.setup.sel = app.setup.sel.filter(k => k !== 'm:' + id); fixSel(); },
   shareList(id){ const l = myLists.find(x => x.id === id); if (l) shareOne(l); return 'keep'; },
   saveDraft(){ saveDraftList(); return 'keep'; },
-  adminCsv(){ const D = app.draft, name = (document.getElementById('dName') || {}).value || D.name || 'Playlist';
-    const rows = [['artist','title','year','youtube_link','start_sec','playlists'], ...D.songs.filter(x => x.on).map(x => [x.artist, x.title, x.year, 'https://youtu.be/' + x.id, x.start || 0, name])];
-    const csv = rows.map(r => r.map(v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v)).join(',')).join('\n');
-    try{ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); a.download = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.csv'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }catch(e){}
-  },
+  adminAsk(){ app.adminAsk = !app.adminAsk; app.adminMsg = null; },
+  adminLogin(){ adminLogin(((document.getElementById('adminPw') || {}).value || '').trim()); return 'keep'; },
+  adminLogout(){ app.adminPw = null; try{ sessionStorage.removeItem('nd_admin_pw'); }catch(e){} app.libMsg = { kind: 'good', text: 'Admin mode is off.' }; },
+  sEdit(id){ const l = shared.lists.find(x => x.id === id); if (!l || !app.adminPw) return; app.draftMsg = null; app.draft = { sheetId: id, main: l.main, name: l.name, songs: l.songs.map(x => Object.assign({ on: true, note: '' }, x)), stage: 'review' }; app.onlyFlagged = false; app.screen = 'import'; window.scrollTo(0, 0); },
+  sDel(id){ if (app.confirm !== 'sdel:' + id){ app.confirm = 'sdel:' + id; return 'keep'; } const l = shared.lists.find(x => x.id === id); adminDo('Deleting "' + (l ? l.name : 'playlist') + '"', () => api('delete', { id })); },
+  sMain(id){ const l = shared.lists.find(x => x.id === id); if (!l) return; adminDo(l.main ? 'Moving "' + l.name + '" to player playlists' : 'Making "' + l.name + '" a main playlist', () => api('setMain', { id, main: !l.main })); return 'keep'; },
+  copyFile(name){ const l = admin.lists.find(x => x.name === name); if (!l) return; adminDo('Copying "' + name + '" into the playlist store', () => api('add', { name, songs: songsOut(l.songs), main: true })); return 'keep'; },
+  draftMain(){ app.draft.main = !app.draft.main; saveDraft(); },
 };
 /* Check the draft, save it on this device, then add it to the shared list. */
 async function saveDraftList(){
@@ -646,6 +678,16 @@ async function saveDraftList(){
   if (!songs.length){ app.draftMsg = { kind: 'bad', text: 'Keep at least one song.' }; render(); return; }
   if (bad.length){ app.draftMsg = { kind: 'bad', text: bad.length + ' song' + (bad.length === 1 ? ' needs' : 's need') + ' an artist, a title and a 4-digit year.' }; render(); return; }
   const clean = songs.map(x => ({ id: x.id, artist: x.artist.trim(), title: x.title.trim(), year: +x.year, start: +x.start || 0 }));
+  if (D.sheetId || (app.adminPw && D.main)){
+    app.draftMsg = { kind: '', text: 'Saving…' }; render();
+    try{
+      if (D.sheetId) await api('update', { id: D.sheetId, name, songs: clean, main: !!D.main });
+      else await api('add', { name, songs: clean, main: true });
+    }catch(e){ app.draftMsg = { kind: 'bad', text: e.message === 'password' || e.message === 'locked' ? 'Admin sign-in was refused. Go back, sign in again, then save.' : 'Could not save to the playlist store. Try again.' }; render(); return; }
+    importRun++; app.draft = null; store.del('nd_draft'); app.screen = 'library';
+    await loadShared();
+    app.libMsg = { kind: 'good', text: '"' + name + '" is saved for every device.' }; render(); return;
+  }
   let list = D.listId && myLists.find(l => l.id === D.listId);
   if (list){ list.name = uniqueName(name, list.id); list.songs = clean; }
   else { list = { id: newId(), name: uniqueName(name), created: new Date().toISOString(), songs: clean }; myLists.unshift(list); }
@@ -770,25 +812,33 @@ function vSetup(){
 }
 
 function vLibrary(){
-  const m = app.libMsg;
+  const m = app.libMsg, ad = !!app.adminPw;
   const row = (l, btns) => `<div class="lrow"><div class="lname"><b>${esc(l.name)}</b><span>${plural(l.songs.length, 'song')}</span></div><div class="ebtns">${btns}</div></div>`;
-  const local = myLists.filter(l => !(l.sharedId && shared.lists.some(x => x.id === l.sharedId)));
+  const delBtn = (act, id, conf) => `<button class="btn ${app.confirm === conf ? 'warn' : 'ghost'} small" data-act="${act}" data-v="${esc(id)}">${app.confirm === conf ? 'Tap again to delete' : 'Delete'}</button>`;
+  const adminBtns = l => l.file ? '' : `<button class="btn ghost small" data-act="sEdit" data-v="${esc(l.list.id)}">Edit</button>
+       <button class="btn ghost small" data-act="sMain" data-v="${esc(l.list.id)}">${l.list.main ? 'Make player playlist' : 'Make main'}</button>
+       ${delBtn('sDel', l.list.id, 'sdel:' + l.list.id)}`;
+  const L = allLists(), mains = L.filter(l => l.kind === 'admin'), players = L.filter(l => l.kind === 'shared'), local = L.filter(l => l.kind === 'mine');
   return `<div class="page-head"><h1>Playlists</h1><button class="btn ghost small" data-act="toHome">Back</button></div>
+  ${ad ? `<div class="note good row" style="justify-content:space-between">Admin mode: you can edit, delete and promote playlists. <button class="btn ghost small" data-act="adminLogout">Leave admin mode</button></div>` : ''}
   ${m ? `<div class="note ${m.kind}">${esc(m.text)}</div>` : ''}
   <section class="panel"><h2>Main playlists</h2>
-    <p class="muted small">Always available. Only the owner of the game can change these.</p>
-    <div class="lrows">${admin.lists.map(l => row(l, '')).join('') || `<p class="muted small">${admin.error ? 'Could not load them. Check the internet connection.' : 'Loading…'}</p>`}</div>
-    ${admin.problems && admin.problems.length ? `<details class="small muted"><summary>${plural(admin.problems.length, 'row')} skipped</summary><ul class="problems">${admin.problems.map(p => `<li>${esc(p.file)} row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul></details>` : ''}
+    <p class="muted small">Always available. Only the admin can change these.</p>
+    <div class="lrows">${mains.map(l => row(l, ad && storeOn() ? adminBtns(l) : '')).join('') || `<p class="muted small">${storeOn() ? 'None yet.' : admin.error ? 'Could not load them. Check the internet connection.' : 'Loading…'}</p>`}</div>
+    ${ad && storeOn() ? (() => { const names = new Set(shared.lists.map(l => l.name)), files = admin.lists.filter(l => !names.has(l.name));
+      return files.length ? `<p class="grp">In the game files, not in the store (players don't see these)</p><div class="lrows">${files.map(l => row(Object.assign({ file: true }, l), `<button class="btn ghost small" data-act="copyFile" data-v="${esc(l.name)}">Copy in as main playlist</button>`)).join('')}</div>` : ''; })() : ''}
+    ${ad && admin.problems && admin.problems.length ? `<details class="small muted"><summary>${plural(admin.problems.length, 'row')} skipped in the game files</summary><ul class="problems">${admin.problems.map(p => `<li>${esc(p.file)} row ${p.row}: ${esc(p.msg)}</li>`).join('')}</ul></details>` : ''}
   </section>
   <section class="panel"><h2>Shared by players</h2>
     ${SHARED_URL ? `<p class="muted small">Every playlist a player imports shows here on every device. To fix one, make a copy, fix it and save the copy.</p>
-      <div class="lrows">${shared.lists.map(l => row(l, `<button class="btn ghost small" data-act="copyList" data-v="${esc(l.id)}">Copy and fix</button>`)).join('') || '<p class="muted small">None yet. Import one below.</p>'}</div>`
+      <div class="lrows">${players.map(l => row(l, ad ? adminBtns(l) : `<button class="btn ghost small" data-act="copyList" data-v="${esc(l.list.id)}">Copy and fix</button>`)).join('') || '<p class="muted small">None yet. Import one below.</p>'}</div>`
     : `<p class="muted small">The shared list isn't switched on yet, so imported playlists stay on the device they were made on.</p>`}
   </section>
   ${local.length ? `<section class="panel"><h2>On this device only</h2>
-    <div class="lrows">${local.map(l => row(l, `<button class="btn ghost small" data-act="editList" data-v="${esc(l.id)}">Edit</button>
-      ${SHARED_URL ? `<button class="btn ghost small" data-act="shareList" data-v="${esc(l.id)}">Share with everyone</button>` : ''}
-      <button class="btn ${app.confirm === 'del:' + l.id ? 'warn' : 'ghost'} small" data-act="delList" data-v="${esc(l.id)}">${app.confirm === 'del:' + l.id ? 'Tap again to delete' : 'Delete'}</button>`)).join('')}</div>
+    <p class="muted small">Not shared yet${SHARED_URL ? ', usually because the connection dropped while saving' : ''}.</p>
+    <div class="lrows">${local.map(l => row(l, `<button class="btn ghost small" data-act="editList" data-v="${esc(l.list.id)}">Edit</button>
+      ${SHARED_URL ? `<button class="btn ghost small" data-act="shareList" data-v="${esc(l.list.id)}">Share with everyone</button>` : ''}
+      ${delBtn('delList', l.list.id, 'del:' + l.list.id)}`)).join('')}</div>
   </section>` : ''}
   <section class="panel"><h2>Import from YouTube</h2>
     ${YT_API_KEY ? `<p class="small">Paste the link of a YouTube playlist (Public or Unlisted). The app reads the songs and looks up each one's release year. You then check the years before saving.</p>
@@ -802,13 +852,19 @@ function vLibrary(){
     ${failed.length ? `<p class="muted small">The DJ marked these as broken during games on this device.</p>
       <ul class="problems">${failed.map(f => `<li>${esc(f.artist)} — ${esc(f.title)} <span class="url">youtu.be/${esc(f.id)}</span></li>`).join('')}</ul>
       <div class="row"><button class="btn ghost small" data-act="clearFailed">Clear list</button></div>` : `<p class="muted small">None so far.</p>`}
-  </section>`;
+  </section>
+  ${SHARED_URL && !ad ? `<div class="row"><button class="linkbtn small" data-act="adminAsk">Admin</button></div>
+    ${app.adminAsk ? `<section class="panel"><h2>Admin sign-in</h2>
+      <label for="adminPw" class="small muted">Admin password</label>
+      <input type="password" id="adminPw" class="sheet" autocomplete="current-password">
+      <div class="row"><button class="btn primary" data-act="adminLogin">Sign in</button></div>
+      ${app.adminMsg ? `<div class="note bad">${esc(app.adminMsg)}</div>` : ''}</section>` : ''}` : ''}`;
 }
 
 function vImport(){
   const D = app.draft;
   if (!D){ app.screen = 'library'; return vLibrary(); }
-  const head = `<div class="page-head"><h1>${D.listId ? 'Edit playlist' : 'New playlist'}</h1><button class="btn ghost small" data-act="cancelDraft">Cancel</button></div>`;
+  const head = `<div class="page-head"><h1>${D.listId || D.sheetId ? 'Edit playlist' : 'New playlist'}</h1><button class="btn ghost small" data-act="cancelDraft">Cancel</button></div>`;
   if (D.stage === 'fetch') return head + `<section class="panel"><p>Reading the playlist from YouTube… ${D.done ? plural(D.done, 'song') : ''}</p></section>`;
   if (D.stage === 'years'){
     const n = D.songs.length;
@@ -842,8 +898,8 @@ function vImport(){
     <div class="erows">${rows}</div>
     <section class="panel">
       ${dm ? `<div class="note ${dm.kind}">${esc(dm.text)}</div>` : ''}
-      <div class="row"><button class="btn primary big" data-act="saveDraft">${SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
-      <p class="muted small">Owner only: <button class="linkbtn" data-act="adminCsv">download as a main-playlist file</button> to add to the game's playlists folder.</p>
+      ${app.adminPw && !D.listId ? `<div class="row"><button class="btn small ${D.main ? 'on' : 'ghost'}" data-act="draftMain" aria-pressed="${!!D.main}">${D.main ? '✓ ' : ''}Main playlist (always available)</button></div>` : ''}
+      <div class="row"><button class="btn primary big" data-act="saveDraft">${D.sheetId ? 'Save changes for everyone' : app.adminPw && D.main ? 'Save as main playlist' : SHARED_URL ? 'Save and share with everyone' : 'Save on this device'}</button></div>
     </section>`;
 }
 
@@ -1034,6 +1090,10 @@ document.addEventListener('change', e => {
   else if (f === 'start'){ const v = parseStart(t.value); if (v != null){ x.start = v; t.value = v; } else t.value = x.start || 0; }
   else { x[f] = t.value; if (x.note === 'Check artist and title.') x.note = ''; }
   saveDraft();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'adminPw'){ e.preventDefault(); A.adminLogin(); }
+  if (e.key === 'Enter' && e.target.id === 'ytUrl'){ e.preventDefault(); A.importYt(); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'dName' && app.draft){ app.draft.name = e.target.value; return; }
