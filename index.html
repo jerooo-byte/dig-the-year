@@ -390,7 +390,7 @@ function splitTitle(raw, channel){
 }
 async function ytFetchPlaylist(pid, onPage){
   const out = [], seen = new Set(); let token = '';
-  for (let page = 0; page < 20; page++){
+  for (let page = 0; page < 100; page++){ // 100 pages × 50 = YouTube's 5000-video maximum
     const u = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=' + encodeURIComponent(pid) + '&key=' + encodeURIComponent(YT_API_KEY) + (token ? '&pageToken=' + token : '');
     const r = await fetch(u);
     const j = await r.json().catch(() => ({}));
