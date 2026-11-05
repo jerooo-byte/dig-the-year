@@ -8,7 +8,9 @@
  *    into SHARED_URL in index.html. After changing this code, use Deploy → Manage deployments → Edit →
  *    New version, so the URL stays the same.
  *
- * The "playlists" tab has one row per playlist: id | name | created | songs (JSON) | main (TRUE/FALSE).
+ * The "playlists" tab has one row per playlist: id | name | created | songs (JSON) | main (TRUE/FALSE) | more songs…
+ * A cell holds at most 50,000 characters (about 400 songs), so a longer playlist is split: the first part
+ * stays in column D and the rest goes in columns F, G, H… Each part is its own JSON list of songs.
  * Anyone with the game can list playlists and add a player playlist. Only someone who sends the admin
  * password can add a main playlist, edit, delete, or switch a playlist between main and player.
  * The password lives only in Script properties, never in the website's code.
@@ -18,7 +20,8 @@
  * for the song's earliest Discogs release year; the token never leaves the script.
  */
 const SHEET_NAME = 'playlists';
-const MAX_SONGS = 400;
+const MAX_SONGS = 5000;       // a YouTube playlist holds at most 5000 videos
+const CHUNK = 45000;          // characters per cell; Sheets allows 50,000
 const MAX_FAILS = 8;          // wrong passwords allowed per 15 minutes before admin is locked for 15 minutes
 
 function sheet_() {
@@ -33,7 +36,24 @@ function json_(o) {
 function rows_() {
   const sh = sheet_();
   const n = sh.getLastRow();
-  return n ? sh.getRange(1, 1, n, 5).getValues() : [];
+  return n ? sh.getRange(1, 1, n, Math.max(5, sh.getLastColumn())).getValues() : [];
+}
+
+/* All songs of a row: column D plus the extra parts in columns F onwards. */
+function rowSongs_(r) {
+  let songs = JSON.parse(r[3]);
+  for (let c = 5; c < r.length; c++) if (r[c]) songs = songs.concat(JSON.parse(r[c]));
+  return songs;
+}
+
+/* Writes the song parts of one row: part 1 in column D, the rest from column F, and clears old leftovers. */
+function writeSongs_(sh, row, parts) {
+  const need = 5 + parts.length - 1;
+  if (sh.getMaxColumns() < need) sh.insertColumnsAfter(sh.getMaxColumns(), need - sh.getMaxColumns());
+  sh.getRange(row, 4).setValue(parts[0]);
+  const last = sh.getLastColumn();
+  if (last >= 6) sh.getRange(row, 6, 1, last - 5).clearContent();
+  if (parts.length > 1) sh.getRange(row, 6, 1, parts.length - 1).setValues([parts.slice(1)]);
 }
 
 function doGet(e) {
@@ -46,7 +66,7 @@ function doGet(e) {
         id: String(r[0]),
         name: String(r[1]).replace(/^'/, ''),
         created: r[2] instanceof Date ? r[2].toISOString() : String(r[2]),
-        songs: JSON.parse(r[3]),
+        songs: rowSongs_(r),
         main: r[4] === true || String(r[4]).toUpperCase() === 'TRUE'
       });
     } catch (e) { /* skip a row edited by hand into bad JSON */ }
@@ -120,9 +140,17 @@ function cleanSongs_(list) {
     });
     if (s.off === true) songs[songs.length - 1].off = true; // kept in the playlist, never drawn in a game
   });
-  const data = JSON.stringify(songs);
-  if (!songs.length || data.length > 49000) return null; // a cell holds 50,000 characters
-  return data;
+  if (!songs.length || (list || []).length > MAX_SONGS) return null;
+  // Split into parts that each fit in one cell (whole songs per part, so every part is valid JSON).
+  const parts = [];
+  let cur = [], len = 2;
+  songs.forEach(function (s) {
+    const n = JSON.stringify(s).length + 1;
+    if (cur.length && len + n > CHUNK) { parts.push(JSON.stringify(cur)); cur = []; len = 2; }
+    cur.push(s); len += n;
+  });
+  parts.push(JSON.stringify(cur));
+  return parts;
 }
 
 /* true when the password is right. Counts wrong tries; too many locks admin for a while. */
@@ -161,7 +189,9 @@ function doPost(e) {
       if (!name) return json_({ ok: false, error: 'name' });
       if (!data) return json_({ ok: false, error: 'songs' });
       const id = Utilities.getUuid().slice(0, 8);
-      sheet_().appendRow([id, name, new Date(), data, admin && !!body.main]);
+      const sh = sheet_();
+      sh.appendRow([id, name, new Date(), data[0], admin && !!body.main]);
+      if (data.length > 1) writeSongs_(sh, sh.getLastRow(), data);
       return json_({ ok: true, id: id });
     }
 
@@ -174,7 +204,7 @@ function doPost(e) {
       if (!name) return json_({ ok: false, error: 'name' });
       if (!data) return json_({ ok: false, error: 'songs' });
       sh.getRange(row, 2).setValue(name);
-      sh.getRange(row, 4).setValue(data);
+      writeSongs_(sh, row, data);
       sh.getRange(row, 5).setValue(!!body.main);
       return json_({ ok: true, id: String(body.id) });
     }
